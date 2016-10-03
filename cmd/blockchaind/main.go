@@ -48,7 +48,7 @@ func main() {
 	for {
 		str := <-ReadStdin()
 		tx := core.SubmitTransaction([]byte(str))
-		log.Println("Submitted", tx.String())
+		log.Println("Submitted tx:", tx.String())
 	}
 }
 

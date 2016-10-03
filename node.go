@@ -28,7 +28,7 @@ func (n Nodes) AddNode(node *Node) bool {
 type Node struct {
 	*net.TCPConn
 	lastSeen int
-	// These are messages coming from the node.  They are read by the
+	// These are messages coming from the remote end.  They are read by the
 	// local node.
 	inMsg chan Message
 }
@@ -60,7 +60,7 @@ func (node *Node) handleNode() {
 		}
 
 		m := new(Message)
-		if err = m.UnmarshalBinary(bs[0:n]); err != nil {
+		if err = m.UnmarshalBinary(bs[:n]); err != nil {
 			log.Println("ERR", err)
 			continue
 		}
@@ -70,7 +70,6 @@ func (node *Node) handleNode() {
 		go func(cb chan Message) {
 			for {
 				m, ok := <-cb
-
 				if !ok {
 					close(cb)
 					break
@@ -78,7 +77,6 @@ func (node *Node) handleNode() {
 
 				b, _ := m.MarshalBinary()
 				l := len(b)
-
 				i := 0
 				for i < l {
 					a, _ := node.TCPConn.Write(b[i:])

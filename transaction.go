@@ -75,7 +75,6 @@ func (t *Transaction) GenerateNonce(prefix []byte) uint32 {
 }
 
 func (t *Transaction) MarshalBinary() ([]byte, error) {
-
 	headerBytes, _ := t.Header.MarshalBinary()
 
 	if len(headerBytes) != TRANSACTION_HEADER_SIZE {
@@ -86,7 +85,6 @@ func (t *Transaction) MarshalBinary() ([]byte, error) {
 }
 
 func (t *Transaction) UnmarshalBinary(d []byte) ([]byte, error) {
-
 	buf := bytes.NewBuffer(d)
 
 	if len(d) < TRANSACTION_HEADER_SIZE+NETWORK_KEY_SIZE {
@@ -97,18 +95,15 @@ func (t *Transaction) UnmarshalBinary(d []byte) ([]byte, error) {
 	if err := header.UnmarshalBinary(buf.Next(TRANSACTION_HEADER_SIZE)); err != nil {
 		return nil, err
 	}
-
 	t.Header = *header
 
 	t.Signature = helpers.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
 	t.Payload = buf.Next(int(t.Header.PayloadLength))
 
 	return buf.Next(helpers.MaxInt), nil
-
 }
 
 func (th *TransactionHeader) MarshalBinary() ([]byte, error) {
-
 	buf := new(bytes.Buffer)
 
 	buf.Write(helpers.FitBytesInto(th.From, NETWORK_KEY_SIZE))
@@ -123,8 +118,8 @@ func (th *TransactionHeader) MarshalBinary() ([]byte, error) {
 }
 
 func (th *TransactionHeader) UnmarshalBinary(d []byte) error {
-
 	buf := bytes.NewBuffer(d)
+
 	th.From = helpers.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
 	th.To = helpers.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
 	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &th.Timestamp)
@@ -138,12 +133,10 @@ func (th *TransactionHeader) UnmarshalBinary(d []byte) error {
 type TransactionSlice []Transaction
 
 func (slice TransactionSlice) Len() int {
-
 	return len(slice)
 }
 
 func (slice TransactionSlice) Exists(tr Transaction) bool {
-
 	for _, t := range slice {
 		if reflect.DeepEqual(t.Signature, tr.Signature) {
 			return true
@@ -153,7 +146,6 @@ func (slice TransactionSlice) Exists(tr Transaction) bool {
 }
 
 func (slice TransactionSlice) AddTransaction(t Transaction) TransactionSlice {
-
 	// Inserted sorted by timestamp
 	for i, tr := range slice {
 		if tr.Header.Timestamp >= t.Header.Timestamp {
@@ -179,9 +171,7 @@ func (slice *TransactionSlice) MarshalBinary() ([]byte, error) {
 }
 
 func (slice *TransactionSlice) UnmarshalBinary(d []byte) error {
-
 	remaining := d
-
 	for len(remaining) > TRANSACTION_HEADER_SIZE+NETWORK_KEY_SIZE {
 		t := new(Transaction)
 		rem, err := t.UnmarshalBinary(remaining)

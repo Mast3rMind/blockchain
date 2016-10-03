@@ -5,8 +5,6 @@ import (
 	"log"
 	"net"
 	"time"
-
-	"github.com/izqui/helpers"
 )
 
 const BLOCKCHAIN_DEFAULT_PORT int = 9119
@@ -14,9 +12,9 @@ const BLOCKCHAIN_DEFAULT_PORT int = 9119
 type ConnectionsQueue chan string
 
 type Network struct {
-	Nodes                     // map
-	ConnectionsQueue          // nodes to connect to
+	Nodes                     // map of connected nodes
 	Address            string // bind address
+	ConnectionsQueue          // nodes to connect to
 	ConnectionCallback NodeChannel
 	BroadcastQueue     chan Message
 	IncomingMessages   chan Message
@@ -87,10 +85,9 @@ func (n *Network) startListening() (NodeChannel, error) {
 				continue
 			}
 
-			log.Println("Connected", conn.RemoteAddr().String())
+			log.Println("Connecting", conn.RemoteAddr().String())
 			nd := NewNode(conn, inMsg)
 			cb <- nd
-			//cb <- &Node{connection, int(time.Now().Unix())}
 		}
 	}(listener, n.IncomingMessages)
 
@@ -102,14 +99,12 @@ func (n *Network) BroadcastMessage(message Message) {
 	b, _ := message.MarshalBinary()
 
 	for k, node := range n.Nodes {
-
 		log.Println("Broadcasting:", k)
 		go func() {
 			if _, err := node.TCPConn.Write(b); err != nil {
 				log.Println("Error Broadcasting to", node.TCPConn.RemoteAddr())
 			}
 		}()
-
 	}
 }
 
@@ -119,7 +114,6 @@ func dialNode(dst string, timeout time.Duration, retry bool, cb NodeChannel, inM
 	if err != nil {
 		return err
 	}
-
 	var con *net.TCPConn = nil
 
 loop:
@@ -135,12 +129,14 @@ loop:
 		}()
 
 		select {
-		case <-helpers.Timeout(timeout):
+		case <-time.After(timeout):
 			if !retry {
 				break loop
 			}
+
 		case <-breakChannel:
 			break loop
+
 		}
 
 	}

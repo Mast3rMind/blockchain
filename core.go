@@ -49,7 +49,6 @@ func (c *core) bootstrap() {
 
 func (c *core) Start() {
 	c.bootstrap()
-
 	go func() {
 		for {
 			select {
