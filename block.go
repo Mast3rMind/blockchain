@@ -2,12 +2,10 @@ package blockchain
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"reflect"
-
-	"github.com/izqui/functional"
-	"github.com/izqui/helpers"
 
 	"github.com/ipkg/blockchain/utils"
 )
@@ -67,7 +65,8 @@ func (b *Block) VerifyBlock(prefix []byte) bool {
 
 func (b *Block) Hash() []byte {
 	headerHash, _ := b.BlockHeader.MarshalBinary()
-	return helpers.SHA256(headerHash)
+	sh := sha256.Sum256(headerHash)
+	return sh[:]
 }
 
 func (b *Block) String() string {
@@ -105,13 +104,15 @@ func (b *Block) GenerateMerkelRoot() []byte {
 			bs := make([][]byte, l/2)
 			for i, _ := range bs {
 				j, k := i*2, (i*2)+1
-				bs[i] = helpers.SHA256(append(hashes[j], hashes[k]...))
+
+				sh := sha256.Sum256(append(hashes[j], hashes[k]...))
+				bs[i] = sh[:]
 			}
 			return merkell(bs)
 		}
 	}
 
-	ts := functional.Map(func(t Transaction) []byte { return t.Hash() }, []Transaction(*b.TransactionSlice)).([][]byte)
+	ts := utils.FuncMap(func(t Transaction) []byte { return t.Hash() }, []Transaction(*b.TransactionSlice)).([][]byte)
 	return merkell(ts)
 
 }

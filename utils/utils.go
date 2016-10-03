@@ -1,5 +1,9 @@
 package utils
 
+import (
+	"reflect"
+)
+
 const (
 	MaxUint = ^uint(0)
 	MinUint = 0
@@ -30,4 +34,25 @@ func StripByte(d []byte, b byte) []byte {
 		}
 	}
 	return nil
+}
+
+// function map
+// f = function, vs = slice
+func FuncMap(f interface{}, vs interface{}) interface{} {
+
+	vf := reflect.ValueOf(f)
+	vx := reflect.ValueOf(vs)
+
+	l := vx.Len()
+
+	tys := reflect.SliceOf(vf.Type().Out(0))
+	vys := reflect.MakeSlice(tys, l, l)
+
+	for i := 0; i < l; i++ {
+
+		y := vf.Call([]reflect.Value{vx.Index(i)})[0]
+		vys.Index(i).Set(y)
+	}
+
+	return vys.Interface()
 }

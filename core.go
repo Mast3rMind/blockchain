@@ -69,7 +69,7 @@ func (c *core) handleIncomingMessage(msg Message) {
 			networkError(err)
 			break
 		}
-		c.Blockchain.TransactionsQueue <- t
+		c.Blockchain.QueueTransaction(t)
 
 	case MESSAGE_SEND_BLOCK:
 		b := new(Block)
@@ -78,7 +78,8 @@ func (c *core) handleIncomingMessage(msg Message) {
 			networkError(err)
 			break
 		}
-		c.Blockchain.BlocksQueue <- *b
+
+		c.Blockchain.QueueBlock(*b)
 
 	default:
 		log.Println("Unknown identifier:", msg.Identifier)
@@ -96,6 +97,6 @@ func (c *core) CreateTransaction(payload []byte) *Transaction {
 // short to create and submit arbitrary data as transaction
 func (c *core) SubmitTransaction(payload []byte) *Transaction {
 	t := c.CreateTransaction(payload)
-	c.Blockchain.TransactionsQueue <- t
+	c.Blockchain.QueueTransaction(t)
 	return t
 }

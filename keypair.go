@@ -6,8 +6,9 @@ import (
 	"crypto/rand"
 	"math/big"
 
-	"github.com/izqui/helpers"
 	"github.com/tv42/base58"
+
+	"github.com/ipkg/blockchain/utils"
 )
 
 // Key generation with proof of work
@@ -17,15 +18,13 @@ type Keypair struct {
 }
 
 func GenerateNewKeypair() *Keypair {
-
 	pk, _ := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
-
 	b := bigJoin(KEY_SIZE, pk.PublicKey.X, pk.PublicKey.Y)
 
-	public := base58.EncodeBig([]byte{}, b)
-	private := base58.EncodeBig([]byte{}, pk.D)
-
-	kp := Keypair{Public: public, Private: private}
+	kp := Keypair{
+		Public:  base58.EncodeBig([]byte{}, b),
+		Private: base58.EncodeBig([]byte{}, pk.D),
+	}
 
 	return &kp
 }
@@ -73,7 +72,7 @@ func bigJoin(expectedLen int, bigs ...*big.Int) *big.Int {
 		dif := expectedLen - len(by)
 		if dif > 0 && i != 0 {
 
-			by = append(helpers.ArrayOfBytes(dif, 0), by...)
+			by = append(utils.ArrayOfBytes(dif, 0), by...)
 		}
 
 		bs = append(bs, by...)

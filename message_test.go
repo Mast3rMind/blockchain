@@ -1,14 +1,13 @@
 package blockchain
 
 import (
-	"github.com/izqui/helpers"
 	"reflect"
 	"testing"
 )
 
 func TestMessageMarshalling(t *testing.T) {
 
-	mes := &Message{Identifier: MESSAGE_GET_NODES, Options: []byte{1, 2, 3, 4}, Data: []byte(helpers.RandomString(helpers.RandomInt(1024, 1024*4)))}
+	mes := &Message{Identifier: MESSAGE_GET_NODES, Options: []byte{1, 2, 3, 4}, Data: []byte(randomString(randomInt(1024, 1024*4)))}
 	bs, err := mes.MarshalBinary()
 
 	if err != nil {

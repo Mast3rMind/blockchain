@@ -87,6 +87,5 @@ func (node *Node) handleNode() {
 		}(m.Reply)
 
 		node.inMsg <- *m
-		//Core.Network.IncomingMessages <- *m
 	}
 }
