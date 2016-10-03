@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/izqui/blockchain/core"
+	"github.com/ipkg/blockchain/core"
 )
 
 func main() {

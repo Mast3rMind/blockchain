@@ -5,19 +5,37 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
-	"github.com/izqui/blockchain/core"
+	"github.com/ipkg/blockchain/core"
 )
 
-var address = flag.String("ip", fmt.Sprintf("%s:%s", core.GetIpAddress()[0], core.BLOCKCHAIN_PORT), "Public facing ip address")
+var (
+	cfg = &core.Config{}
+)
+
+func parseSeeds(slist string) []string {
+	out := []string{}
+	for _, s := range strings.Split(slist, ",") {
+		if s = strings.TrimSpace(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
 
 func init() {
+	seedList := flag.String("seeds", "", "Seed nodes")
+	flag.StringVar(&cfg.Addr, "ip", fmt.Sprintf("127.0.0.1:%s", core.BLOCKCHAIN_PORT), "Public facing ip address")
+	flag.StringVar(&cfg.DataDir, "data-dir", "blockchain-data", "Data directory")
 	flag.Parse()
+
+	cfg.Seeds = parseSeeds(*seedList)
 }
 
 func main() {
 
-	core.Start(*address)
+	core.Start(cfg)
 
 	for {
 		str := <-ReadStdin()
