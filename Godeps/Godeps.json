@@ -1,0 +1,19 @@
+{
+	"ImportPath": "github.com/ipkg/blockchain",
+	"GoVersion": "go1.7",
+	"GodepVersion": "v74",
+	"Deps": [
+		{
+			"ImportPath": "github.com/izqui/functional",
+			"Rev": "33eb58a9d05d59e5415e2e7cc5a92e28341285c2"
+		},
+		{
+			"ImportPath": "github.com/izqui/helpers",
+			"Rev": "c69cdb8bbd1994c11483a260e9f57427348208e8"
+		},
+		{
+			"ImportPath": "github.com/tv42/base58",
+			"Rev": "b6649477bfe6276322b4eeaae8f5e947b49cec92"
+		}
+	]
+}

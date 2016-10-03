@@ -1,4 +1,6 @@
 vms/
+vendor/
+build/
 
 cli
 core

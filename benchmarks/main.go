@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/izqui/blockchain/core"
+	"github.com/ipkg/blockchain"
 )
 
 func main() {
@@ -12,17 +12,17 @@ func main() {
 	fmt.Println("Benchmarking...")
 
 	t1 := benchmark(func() {
-		t := core.NewTransaction(nil, nil, nil)
-		t.GenerateNonce(core.TRANSACTION_POW)
-		t.Sign(core.GenerateNewKeypair())
+		t := blockchain.NewTransaction(nil, nil, nil)
+		t.GenerateNonce(blockchain.TRANSACTION_POW)
+		t.Sign(blockchain.GenerateNewKeypair())
 	})
 	fmt.Println("Transaction took", t1)
 
 	t2 := benchmark(func() {
-		b := core.NewBlock(nil)
+		b := blockchain.NewBlock(nil)
 		b.GenerateMerkelRoot()
-		b.GenerateNonce(core.BLOCK_POW)
-		b.Sign(core.GenerateNewKeypair())
+		b.GenerateNonce(blockchain.BLOCK_POW)
+		b.Sign(blockchain.GenerateNewKeypair())
 	})
 	fmt.Println("Block took", t2)
 }
