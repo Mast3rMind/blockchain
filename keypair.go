@@ -1,4 +1,4 @@
-package core
+package blockchain
 
 import (
 	"crypto/ecdsa"
@@ -6,9 +6,10 @@ import (
 	"crypto/rand"
 	"math/big"
 
-	"github.com/izqui/helpers"
 	"github.com/tv42/base58"
 )
+
+const KEY_SIZE = 28
 
 // Key generation with proof of work
 type Keypair struct {
@@ -17,15 +18,13 @@ type Keypair struct {
 }
 
 func GenerateNewKeypair() *Keypair {
-
 	pk, _ := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
-
 	b := bigJoin(KEY_SIZE, pk.PublicKey.X, pk.PublicKey.Y)
 
-	public := base58.EncodeBig([]byte{}, b)
-	private := base58.EncodeBig([]byte{}, pk.D)
-
-	kp := Keypair{Public: public, Private: private}
+	kp := Keypair{
+		Public:  base58.EncodeBig([]byte{}, b),
+		Private: base58.EncodeBig([]byte{}, pk.D),
+	}
 
 	return &kp
 }
@@ -43,9 +42,7 @@ func (k *Keypair) Sign(hash []byte) ([]byte, error) {
 	x, y := pub[0], pub[1]
 
 	key := ecdsa.PrivateKey{ecdsa.PublicKey{elliptic.P224(), x, y}, d}
-
 	r, s, _ := ecdsa.Sign(rand.Reader, &key, hash)
-
 	return base58.EncodeBig([]byte{}, bigJoin(KEY_SIZE, r, s)), nil
 }
 
@@ -73,7 +70,7 @@ func bigJoin(expectedLen int, bigs ...*big.Int) *big.Int {
 		dif := expectedLen - len(by)
 		if dif > 0 && i != 0 {
 
-			by = append(helpers.ArrayOfBytes(dif, 0), by...)
+			by = append(arrayOfBytes(dif, 0), by...)
 		}
 
 		bs = append(bs, by...)
