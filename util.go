@@ -1,17 +1,11 @@
-package utils
+package blockchain
 
 import (
 	"reflect"
 )
 
-const (
-	MaxUint = ^uint(0)
-	MinUint = 0
-	MaxInt  = int(MaxUint >> 1)
-	MinInt  = -(MaxInt - 1)
-)
-
-func ArrayOfBytes(i int, b byte) (p []byte) {
+// create an array filled with b
+func arrayOfBytes(i int, b byte) (p []byte) {
 	for i != 0 {
 		p = append(p, b)
 		i--
@@ -19,26 +13,17 @@ func ArrayOfBytes(i int, b byte) (p []byte) {
 	return
 }
 
-func FitBytesInto(d []byte, i int) []byte {
+func fitBytesInto(d []byte, i int) []byte {
 	if len(d) < i {
 		dif := i - len(d)
-		return append(ArrayOfBytes(dif, 0), d...)
+		return append(arrayOfBytes(dif, 0), d...)
 	}
 	return d[:i]
 }
 
-func StripByte(d []byte, b byte) []byte {
-	for i, bb := range d {
-		if bb != b {
-			return d[i:]
-		}
-	}
-	return nil
-}
-
 // function map
 // f = function, vs = slice
-func FuncMap(f interface{}, vs interface{}) interface{} {
+func funcMap(f interface{}, vs interface{}) interface{} {
 
 	vf := reflect.ValueOf(f)
 	vx := reflect.ValueOf(vs)
@@ -55,4 +40,13 @@ func FuncMap(f interface{}, vs interface{}) interface{} {
 	}
 
 	return vys.Interface()
+}
+
+func stripByte(d []byte, b byte) []byte {
+	for i, bb := range d {
+		if bb != b {
+			return d[i:]
+		}
+	}
+	return nil
 }

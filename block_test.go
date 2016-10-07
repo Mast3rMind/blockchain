@@ -5,8 +5,6 @@ import (
 	"crypto/sha256"
 	"reflect"
 	"testing"
-
-	"github.com/ipkg/blockchain/utils"
 )
 
 func TestMerkellHash(t *testing.T) {
@@ -33,7 +31,7 @@ func TestBlockMarshalling(t *testing.T) {
 	kp := GenerateNewKeypair()
 	tr := NewTransaction(kp.Public, nil, []byte(randomString(randomInt(0, 1024*1024))))
 
-	tr.Header.Nonce = tr.GenerateNonce(utils.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX))
+	tr.Header.Nonce = tr.GenerateNonce(arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX))
 	tr.Signature = tr.Sign(kp)
 
 	data, err := tr.MarshalBinary()
@@ -55,7 +53,7 @@ func TestBlockMarshalling(t *testing.T) {
 
 func TestBlockVerification(t *testing.T) {
 
-	pow := utils.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
+	pow := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
 
 	kp := GenerateNewKeypair()
 	tr := NewTransaction(kp.Public, nil, []byte(randomString(randomInt(0, 1024))))
@@ -71,8 +69,8 @@ func TestBlockVerification(t *testing.T) {
 
 func TestIncorrectBlockPOWVerification(t *testing.T) {
 
-	pow := utils.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
-	powIncorrect := utils.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, 'a')
+	pow := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
+	powIncorrect := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, 'a')
 
 	kp := GenerateNewKeypair()
 	tr := NewTransaction(kp.Public, nil, []byte(randomString(randomInt(0, 1024))))
@@ -87,7 +85,7 @@ func TestIncorrectBlockPOWVerification(t *testing.T) {
 
 func TestIncorrectBlockSignatureVerification(t *testing.T) {
 
-	pow := utils.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
+	pow := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
 	kp1, kp2 := GenerateNewKeypair(), GenerateNewKeypair()
 	tr := NewTransaction(kp2.Public, nil, []byte(randomString(randomInt(0, 1024))))
 	tr.Header.Nonce = tr.GenerateNonce(pow)

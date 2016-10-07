@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"reflect"
 	"time"
-
-	"github.com/ipkg/blockchain/utils"
 )
+
+const TRANSACTION_HEADER_SIZE = NETWORK_KEY_SIZE /* from key */ + NETWORK_KEY_SIZE /* to key */ + 4 /* int32 timestamp */ + 32 /* sha256 payload hash */ + 4 /* int32 payload length */ + 4 /* int32 nonce */
 
 type Transaction struct {
 	Header    TransactionHeader
@@ -65,7 +65,9 @@ func (t *Transaction) VerifyTransaction(pow []byte) bool {
 	headerHash := t.Hash()
 	sh := sha256.Sum256(t.Payload)
 	payloadHash := sh[:]
-	return reflect.DeepEqual(payloadHash, t.Header.PayloadHash) && CheckProofOfWork(pow, headerHash) &&
+
+	return reflect.DeepEqual(payloadHash, t.Header.PayloadHash) &&
+		CheckProofOfWork(pow, headerHash) &&
 		SignatureVerify(t.Header.From, t.Signature, headerHash)
 }
 
@@ -87,7 +89,7 @@ func (t *Transaction) MarshalBinary() ([]byte, error) {
 		return nil, errors.New("Header marshalling error")
 	}
 
-	return append(append(headerBytes, utils.FitBytesInto(t.Signature, NETWORK_KEY_SIZE)...), t.Payload...), nil
+	return append(append(headerBytes, fitBytesInto(t.Signature, NETWORK_KEY_SIZE)...), t.Payload...), nil
 }
 
 func (t *Transaction) UnmarshalBinary(d []byte) ([]byte, error) {
@@ -103,19 +105,19 @@ func (t *Transaction) UnmarshalBinary(d []byte) ([]byte, error) {
 	}
 	t.Header = *header
 
-	t.Signature = utils.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
+	t.Signature = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
 	t.Payload = buf.Next(int(t.Header.PayloadLength))
 
-	return buf.Next(utils.MaxInt), nil
+	return buf.Next(MAX_DATA_SIZE), nil
 }
 
 func (th *TransactionHeader) MarshalBinary() ([]byte, error) {
 	buf := new(bytes.Buffer)
 
-	buf.Write(utils.FitBytesInto(th.From, NETWORK_KEY_SIZE))
-	buf.Write(utils.FitBytesInto(th.To, NETWORK_KEY_SIZE))
+	buf.Write(fitBytesInto(th.From, NETWORK_KEY_SIZE))
+	buf.Write(fitBytesInto(th.To, NETWORK_KEY_SIZE))
 	binary.Write(buf, binary.LittleEndian, th.Timestamp)
-	buf.Write(utils.FitBytesInto(th.PayloadHash, 32))
+	buf.Write(fitBytesInto(th.PayloadHash, 32))
 	binary.Write(buf, binary.LittleEndian, th.PayloadLength)
 	binary.Write(buf, binary.LittleEndian, th.Nonce)
 
@@ -126,8 +128,8 @@ func (th *TransactionHeader) MarshalBinary() ([]byte, error) {
 func (th *TransactionHeader) UnmarshalBinary(d []byte) error {
 	buf := bytes.NewBuffer(d)
 
-	th.From = utils.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
-	th.To = utils.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
+	th.From = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
+	th.To = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
 	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &th.Timestamp)
 	th.PayloadHash = buf.Next(32)
 	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &th.PayloadLength)

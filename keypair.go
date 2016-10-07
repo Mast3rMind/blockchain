@@ -7,9 +7,9 @@ import (
 	"math/big"
 
 	"github.com/tv42/base58"
-
-	"github.com/ipkg/blockchain/utils"
 )
+
+const KEY_SIZE = 28
 
 // Key generation with proof of work
 type Keypair struct {
@@ -42,9 +42,7 @@ func (k *Keypair) Sign(hash []byte) ([]byte, error) {
 	x, y := pub[0], pub[1]
 
 	key := ecdsa.PrivateKey{ecdsa.PublicKey{elliptic.P224(), x, y}, d}
-
 	r, s, _ := ecdsa.Sign(rand.Reader, &key, hash)
-
 	return base58.EncodeBig([]byte{}, bigJoin(KEY_SIZE, r, s)), nil
 }
 
@@ -72,7 +70,7 @@ func bigJoin(expectedLen int, bigs ...*big.Int) *big.Int {
 		dif := expectedLen - len(by)
 		if dif > 0 && i != 0 {
 
-			by = append(utils.ArrayOfBytes(dif, 0), by...)
+			by = append(arrayOfBytes(dif, 0), by...)
 		}
 
 		bs = append(bs, by...)

@@ -2,8 +2,6 @@ package blockchain
 
 import (
 	"reflect"
-
-	"github.com/ipkg/blockchain/utils"
 )
 
 const (
@@ -21,11 +19,11 @@ const (
 )
 
 var (
-	TRANSACTION_POW = utils.ArrayOfBytes(TRANSACTION_POW_COMPLEXITY, POW_PREFIX)
-	BLOCK_POW       = utils.ArrayOfBytes(BLOCK_POW_COMPLEXITY, POW_PREFIX)
+	TRANSACTION_POW = arrayOfBytes(TRANSACTION_POW_COMPLEXITY, POW_PREFIX)
+	BLOCK_POW       = arrayOfBytes(BLOCK_POW_COMPLEXITY, POW_PREFIX)
 
-	TEST_TRANSACTION_POW = utils.ArrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, POW_PREFIX)
-	TEST_BLOCK_POW       = utils.ArrayOfBytes(TEST_BLOCK_POW_COMPLEXITY, POW_PREFIX)
+	TEST_TRANSACTION_POW = arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, POW_PREFIX)
+	TEST_BLOCK_POW       = arrayOfBytes(TEST_BLOCK_POW_COMPLEXITY, POW_PREFIX)
 )
 
 func CheckProofOfWork(prefix []byte, hash []byte) bool {

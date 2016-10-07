@@ -6,31 +6,15 @@ import (
 	"encoding/binary"
 	"fmt"
 	"reflect"
-
-	"github.com/ipkg/blockchain/utils"
 )
 
-type BlockSlice []Block
+const BLOCK_HEADER_SIZE = NETWORK_KEY_SIZE /* origin key */ +
+	4 /* int32 timestamp */ +
+	32 /* prev block hash */ +
+	32 /* merkel tree hash */ +
+	4 /* int32 nonce */
 
-func (bs BlockSlice) Exists(b Block) bool {
-	//Traverse array in reverse order because if a block exists is more likely to be on top.
-	l := len(bs)
-	for i := l - 1; i >= 0; i-- {
-		bb := bs[i]
-		if reflect.DeepEqual(b.Signature, bb.Signature) {
-			return true
-		}
-	}
-	return false
-}
-
-func (bs BlockSlice) PreviousBlock() *Block {
-	l := len(bs)
-	if l == 0 {
-		return nil
-	}
-	return &bs[l-1]
-}
+const MAX_DATA_SIZE = int(^uint(0) >> 1)
 
 type Block struct {
 	*BlockHeader
@@ -112,7 +96,7 @@ func (b *Block) GenerateMerkelRoot() []byte {
 		}
 	}
 
-	ts := utils.FuncMap(func(t Transaction) []byte { return t.Hash() }, []Transaction(*b.TransactionSlice)).([][]byte)
+	ts := funcMap(func(t Transaction) []byte { return t.Hash() }, []Transaction(*b.TransactionSlice)).([][]byte)
 	return merkell(ts)
 
 }
@@ -122,7 +106,7 @@ func (b *Block) MarshalBinary() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	sig := utils.FitBytesInto(b.Signature, NETWORK_KEY_SIZE)
+	sig := fitBytesInto(b.Signature, NETWORK_KEY_SIZE)
 	tsb, err := b.TransactionSlice.MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -142,10 +126,10 @@ func (b *Block) UnmarshalBinary(d []byte) error {
 	}
 
 	b.BlockHeader = header
-	b.Signature = utils.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
+	b.Signature = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
 
 	ts := new(TransactionSlice)
-	err = ts.UnmarshalBinary(buf.Next(utils.MaxInt))
+	err = ts.UnmarshalBinary(buf.Next(MAX_DATA_SIZE))
 	if err != nil {
 		return err
 	}
@@ -167,10 +151,10 @@ func (h *BlockHeader) MarshalBinary() ([]byte, error) {
 
 	buf := new(bytes.Buffer)
 
-	buf.Write(utils.FitBytesInto(h.Origin, NETWORK_KEY_SIZE))
+	buf.Write(fitBytesInto(h.Origin, NETWORK_KEY_SIZE))
 	binary.Write(buf, binary.LittleEndian, h.Timestamp)
-	buf.Write(utils.FitBytesInto(h.PrevBlock, 32))
-	buf.Write(utils.FitBytesInto(h.MerkelRoot, 32))
+	buf.Write(fitBytesInto(h.PrevBlock, 32))
+	buf.Write(fitBytesInto(h.MerkelRoot, 32))
 	binary.Write(buf, binary.LittleEndian, h.Nonce)
 
 	return buf.Bytes(), nil
@@ -179,7 +163,7 @@ func (h *BlockHeader) MarshalBinary() ([]byte, error) {
 func (h *BlockHeader) UnmarshalBinary(d []byte) error {
 
 	buf := bytes.NewBuffer(d)
-	h.Origin = utils.StripByte(buf.Next(NETWORK_KEY_SIZE), 0)
+	h.Origin = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
 	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &h.Timestamp)
 	h.PrevBlock = buf.Next(32)
 	h.MerkelRoot = buf.Next(32)

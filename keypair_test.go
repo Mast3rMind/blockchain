@@ -3,8 +3,6 @@ package blockchain
 import (
 	"crypto/sha256"
 	"testing"
-
-	"github.com/ipkg/blockchain/utils"
 )
 
 func TestKeyGeneration(t *testing.T) {
@@ -19,7 +17,7 @@ func TestKeySigning(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		keypair := GenerateNewKeypair()
 
-		data := utils.ArrayOfBytes(i, 'a')
+		data := arrayOfBytes(i, 'a')
 		hash := sha256.Sum256(data)
 
 		signature, err := keypair.Sign(hash[:])
