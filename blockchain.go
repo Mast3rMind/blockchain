@@ -14,11 +14,8 @@ const (
 
 type Blockchain struct {
 	CurrentBlock Block
-
 	// Holds all available blocks
-	//BlockSlice
 	BlockStore
-
 	// Channel to read incoming transactions made available
 	// to the internal engine for processing, verification etc.
 	tq chan *Transaction
@@ -61,12 +58,14 @@ func NewBlockchain(keypair *Keypair, store BlockStore) *Blockchain {
 	return bl
 }
 
-// Queue transaction to be added to a block
+// Queue transaction to be added to a block.  Transactions are verified and
+// then only are acccepted.
 func (bl *Blockchain) QueueTransaction(tx *Transaction) {
 	bl.tq <- tx
 }
 
-// Queue a block check. Is that the same as mining????
+// Queue a block to be added to the chain.  This performs a full
+// validation before actually adding it to the chain.
 func (bl *Blockchain) QueueBlock(b Block) {
 	bl.bq <- b
 }
