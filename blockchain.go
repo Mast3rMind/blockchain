@@ -9,7 +9,7 @@ import (
 // Transaction poll interval
 const (
 	DEFAULT_TX_POLL_TIME_SECS int = 30
-	NETWORK_KEY_SIZE              = 80
+	NETWORK_KEY_SIZE          int = 80
 )
 
 type Blockchain struct {
@@ -58,31 +58,32 @@ func NewBlockchain(keypair *Keypair, store BlockStore) *Blockchain {
 	return bl
 }
 
-// Queue transaction to be added to a block.  Transactions are verified and
-// then only are acccepted.
+// QueueTransaction queues transaction to be added to a block.  Transactions are
+// verified and then only are acccepted.
 func (bl *Blockchain) QueueTransaction(tx *Transaction) {
 	bl.tq <- tx
 }
 
-// Queue a block to be added to the chain.  This performs a full
+// QueueBlock queues a block to be added to the chain.  This performs a full
 // validation before actually adding it to the chain.
 func (bl *Blockchain) QueueBlock(b Block) {
 	bl.bq <- b
 }
 
-// Valid and verified blocks that are available
+// BlockAvailable returns a channel containing valid and verified blocks that are
+// available for broadcast on the network.
 func (bl *Blockchain) BlockAvailable() <-chan Block {
 	return bl.blkOut
 }
 
-// Valid and verified transactions that are available
+// TransactionAvailable returns a channel containing valid and verified transactions
+// that are available for broadcast on the network.
 func (bl *Blockchain) TransactionAvailable() <-chan *Transaction {
 	return bl.txOut
 }
 
 func (bl *Blockchain) createNewBlock() Block {
 
-	//prevBlock := bl.BlockSlice.PreviousBlock()
 	prevBlock := bl.PreviousBlock()
 	prevBlockHash := []byte{}
 	if prevBlock != nil {
@@ -100,6 +101,7 @@ func (bl *Blockchain) Run() {
 	interruptBlockGen := bl.generateBlocks()
 	for {
 		select {
+		// Process transaction
 		case tr := <-bl.tq:
 			if bl.CurrentBlock.TransactionSlice.Exists(*tr) {
 				continue
@@ -115,9 +117,8 @@ func (bl *Blockchain) Run() {
 			bl.txOut <- tr
 
 		case b := <-bl.bq:
-			//if bl.BlockSlice.Exists(b) {
+			// Process block
 			if bl.Exists(b) {
-				//log.Println("Exists block=%s", b.String())
 				continue
 			}
 			if !b.VerifyBlock(BLOCK_POW) {
@@ -128,6 +129,7 @@ func (bl *Blockchain) Run() {
 			if reflect.DeepEqual(b.PrevBlock, bl.CurrentBlock.Hash()) {
 				// I'm missing some blocks in the middle. Request'em.
 				log.Printf("Missing blocks between prev=%x curr=%s", b.PrevBlock, bl.CurrentBlock.String())
+
 			} else {
 				transDiff := TransactionSlice{}
 				if !reflect.DeepEqual(b.BlockHeader.MerkelRoot, bl.CurrentBlock.MerkelRoot) {
@@ -136,12 +138,11 @@ func (bl *Blockchain) Run() {
 				}
 
 				log.Printf("Adding block=%s", b.String())
-				//bl.BlockSlice = append(bl.BlockSlice, b)
 				if e := bl.Add(b); e != nil {
 					log.Println("ERR", e)
 				}
 
-				// make block available to broadcast or do whatever else
+				// Make block available to broadcast or do whatever else
 				bl.blkOut <- b
 
 				// Reset current block to a new block
@@ -178,6 +179,7 @@ func (bl *Blockchain) generateBlocks() chan Block {
 					block.Signature = block.Sign(bl.Keypair)
 					bl.bq <- block
 
+					// TODO: change to milliseconds
 					sleepTime = time.Second * time.Duration(bl.TxPollInterval)
 
 				} else {
@@ -185,7 +187,7 @@ func (bl *Blockchain) generateBlocks() chan Block {
 				}
 
 			} else {
-				//sleepTime = time.Hour * 24
+				// TODO: change to milliseconds
 				sleepTime = time.Second * time.Duration(bl.TxPollInterval)
 				//log.Println("DBG [POW] No transactions. Sleeping for", sleepTime.Seconds(), "secs")
 			}
@@ -203,7 +205,7 @@ func (bl *Blockchain) generateBlocks() chan Block {
 	return interrupt
 }
 
-//Assumes transaction arrays are sorted (which maybe is too big of an assumption)
+//Assumes transaction arrays are sorted (which may be too big of an assumption)
 func DiffTransactionSlices(a, b TransactionSlice) (diff TransactionSlice) {
 	lastj := 0
 	for _, t := range a {

@@ -9,7 +9,7 @@ type BlockStore interface {
 	Exists(Block) bool
 	Add(Block) error
 	PreviousBlock() *Block
-	//Get(string) *Block
+	Get(string) *Block
 }
 
 type InMemBlockStore struct {
@@ -30,6 +30,15 @@ func (ibs *InMemBlockStore) Exists(b Block) bool {
 		}
 	}
 	return false
+}
+
+func (ibs *InMemBlockStore) Get(hsh string) *Block {
+	for _, b := range ibs.bs {
+		if b.String() == hsh {
+			return &b
+		}
+	}
+	return nil
 }
 
 func (ibs *InMemBlockStore) Add(b Block) error {

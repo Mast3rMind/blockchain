@@ -23,11 +23,8 @@ func TestKeySigning(t *testing.T) {
 		signature, err := keypair.Sign(hash[:])
 
 		if err != nil {
-
 			t.Error("base58 error")
-
 		} else if !SignatureVerify(keypair.Public, signature, hash[:]) {
-
 			t.Error("Signing and verifying error", len(keypair.Public))
 		}
 	}

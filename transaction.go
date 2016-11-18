@@ -10,7 +10,12 @@ import (
 	"time"
 )
 
-const TRANSACTION_HEADER_SIZE = NETWORK_KEY_SIZE /* from key */ + NETWORK_KEY_SIZE /* to key */ + 4 /* int32 timestamp */ + 32 /* sha256 payload hash */ + 4 /* int32 payload length */ + 4 /* int32 nonce */
+const TRANSACTION_HEADER_SIZE = NETWORK_KEY_SIZE /* from key */ +
+	NETWORK_KEY_SIZE /* to key */ +
+	4 /* int32 timestamp */ +
+	32 /* sha256 payload hash */ +
+	4 /* int32 payload length */ +
+	4 /* int32 nonce */
 
 type Transaction struct {
 	Header    TransactionHeader
@@ -154,7 +159,7 @@ func (slice TransactionSlice) Exists(tr Transaction) bool {
 }
 
 func (slice TransactionSlice) AddTransaction(t Transaction) TransactionSlice {
-	// Inserted sorted by timestamp
+	// Insert by sorted timestamp
 	for i, tr := range slice {
 		if tr.Header.Timestamp >= t.Header.Timestamp {
 			return append(append(slice[:i], t), slice[i:]...)

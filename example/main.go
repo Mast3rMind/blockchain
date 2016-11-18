@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 
@@ -32,6 +33,7 @@ func main() {
 		}
 	}()
 
+	fmt.Println("Type something and hit enter")
 	for {
 		str := <-readStdin()
 
