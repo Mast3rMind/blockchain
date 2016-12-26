@@ -2,198 +2,176 @@ package blockchain
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/binary"
-	"errors"
 	"fmt"
-	"reflect"
-	"time"
+	"io/ioutil"
+
+	"github.com/btcsuite/fastsha256"
+	"github.com/xsleonard/go-merkle"
 )
 
-const TRANSACTION_HEADER_SIZE = NETWORK_KEY_SIZE /* from key */ +
-	NETWORK_KEY_SIZE /* to key */ +
-	4 /* int32 timestamp */ +
-	32 /* sha256 payload hash */ +
-	4 /* int32 payload length */ +
-	4 /* int32 nonce */
-
-type Transaction struct {
-	Header    TransactionHeader
-	Signature []byte
-	Payload   []byte
+// Signator is used to sign a transaction
+type Signator interface {
+	Sign([]byte) (*Signature, []byte, error)
 }
 
-type TransactionHeader struct {
-	From          []byte
-	To            []byte
-	Timestamp     uint32
-	PayloadHash   []byte
-	PayloadLength uint32
-	Nonce         uint32
+// TxType is a transaction type
+type TxType uint8
+
+// TxHeader contains header info for a transaction.
+type TxHeader struct {
+	prevHash   []byte
+	pubKey     []byte
+	nextPubKey []byte
 }
 
-// Returns bytes to be sent to the network
-func NewTransaction(from, to, payload []byte) *Transaction {
-	t := &Transaction{
-		Header: TransactionHeader{
-			From:      from,
-			To:        to,
-			Timestamp: uint32(time.Now().Unix()),
+// Tx represents a single transaction
+type Tx struct {
+	header    *TxHeader
+	Signature *Signature
+	data      []byte
+}
+
+// NewTx given the previous tx hash, data and optional public keys
+func NewTx(prevHash []byte, data []byte) *Tx {
+	return &Tx{
+		header: &TxHeader{
+			prevHash: prevHash,
 		},
-		Payload: payload,
+		data: data,
+	}
+}
+
+// Header of the transaction
+func (tx *Tx) Header() *TxHeader {
+	return tx.header
+}
+
+// SetData for the tx
+func (tx *Tx) SetData(d []byte) error {
+	if tx.Signature != nil {
+		return fmt.Errorf("tx already signed")
 	}
 
-	sh := sha256.Sum256(t.Payload)
-	t.Header.PayloadHash = sh[:]
-
-	t.Header.PayloadLength = uint32(len(t.Payload))
-	return t
-}
-
-func (t *Transaction) Hash() []byte {
-	headerBytes, _ := t.Header.MarshalBinary()
-	sh := sha256.Sum256(headerBytes)
-	return sh[:]
-}
-
-// Returns string representation of hash
-func (t *Transaction) String() string {
-	return fmt.Sprintf("%x", t.Hash())
-}
-
-func (t *Transaction) Sign(keypair *Keypair) []byte {
-	s, _ := keypair.Sign(t.Hash())
-	return s
-}
-
-func (t *Transaction) VerifyTransaction(pow []byte) bool {
-	headerHash := t.Hash()
-	sh := sha256.Sum256(t.Payload)
-	payloadHash := sh[:]
-
-	return reflect.DeepEqual(payloadHash, t.Header.PayloadHash) &&
-		CheckProofOfWork(pow, headerHash) &&
-		SignatureVerify(t.Header.From, t.Signature, headerHash)
-}
-
-func (t *Transaction) GenerateNonce(prefix []byte) uint32 {
-	newT := t
-	for {
-		if CheckProofOfWork(prefix, newT.Hash()) {
-			break
-		}
-		newT.Header.Nonce++
-	}
-	return newT.Header.Nonce
-}
-
-func (t *Transaction) MarshalBinary() ([]byte, error) {
-	headerBytes, _ := t.Header.MarshalBinary()
-
-	if len(headerBytes) != TRANSACTION_HEADER_SIZE {
-		return nil, errors.New("Header marshalling error")
-	}
-
-	return append(append(headerBytes, fitBytesInto(t.Signature, NETWORK_KEY_SIZE)...), t.Payload...), nil
-}
-
-func (t *Transaction) UnmarshalBinary(d []byte) ([]byte, error) {
-	buf := bytes.NewBuffer(d)
-
-	if len(d) < TRANSACTION_HEADER_SIZE+NETWORK_KEY_SIZE {
-		return nil, errors.New("Insuficient bytes for unmarshalling transaction")
-	}
-
-	header := &TransactionHeader{}
-	if err := header.UnmarshalBinary(buf.Next(TRANSACTION_HEADER_SIZE)); err != nil {
-		return nil, err
-	}
-	t.Header = *header
-
-	t.Signature = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
-	t.Payload = buf.Next(int(t.Header.PayloadLength))
-
-	return buf.Next(MAX_DATA_SIZE), nil
-}
-
-func (th *TransactionHeader) MarshalBinary() ([]byte, error) {
-	buf := new(bytes.Buffer)
-
-	buf.Write(fitBytesInto(th.From, NETWORK_KEY_SIZE))
-	buf.Write(fitBytesInto(th.To, NETWORK_KEY_SIZE))
-	binary.Write(buf, binary.LittleEndian, th.Timestamp)
-	buf.Write(fitBytesInto(th.PayloadHash, 32))
-	binary.Write(buf, binary.LittleEndian, th.PayloadLength)
-	binary.Write(buf, binary.LittleEndian, th.Nonce)
-
-	return buf.Bytes(), nil
-
-}
-
-func (th *TransactionHeader) UnmarshalBinary(d []byte) error {
-	buf := bytes.NewBuffer(d)
-
-	th.From = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
-	th.To = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
-	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &th.Timestamp)
-	th.PayloadHash = buf.Next(32)
-	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &th.PayloadLength)
-	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &th.Nonce)
-
+	tx.data = d
 	return nil
 }
 
-type TransactionSlice []Transaction
-
-func (slice TransactionSlice) Len() int {
-	return len(slice)
+// Data of current tx
+func (tx *Tx) Data() []byte {
+	return tx.data
 }
 
-func (slice TransactionSlice) Exists(tr Transaction) bool {
-	for _, t := range slice {
-		if reflect.DeepEqual(t.Signature, tr.Signature) {
+// DataHash of the tx data
+func (tx *Tx) DataHash() []byte {
+	s := fastsha256.Sum256(tx.data)
+	return s[:]
+}
+
+// Hash of current data
+func (tx *Tx) Hash() []byte {
+	// data hash + previous hash + next pub key + signature (if signed)
+	d := concat(tx.DataHash(), tx.header.prevHash, tx.header.nextPubKey)
+	s := fastsha256.Sum256(d)
+	return s[:]
+}
+
+// Sign transaction
+func (tx *Tx) Sign(signer Signator) error {
+	sig, pubkey, err := signer.Sign(tx.Hash())
+	if err == nil {
+		tx.Signature = sig
+		tx.header.pubKey = pubkey
+	}
+
+	return err
+}
+
+func (tx *Tx) MarshalBinary() []byte {
+	buf := new(bytes.Buffer)
+	buf.Write(append(tx.Hash(), ' '))
+	buf.Write(append(tx.header.prevHash, ' '))
+	if tx.Signature != nil {
+		buf.Write(tx.Signature.Bytes())
+	}
+	buf.Write([]byte{' '})
+	buf.Write(tx.Data())
+	return buf.Bytes()
+}
+
+func (tx *Tx) UnmarshalBinary(b []byte) error {
+	buf := bytes.NewBuffer(b)
+	hash, err := buf.ReadBytes(' ')
+	if err != nil {
+		return err
+	}
+	hash = hash[:len(hash)-1]
+
+	if tx.header == nil {
+		tx.header = &TxHeader{}
+	}
+
+	if tx.header.prevHash, err = buf.ReadBytes(' '); err != nil {
+		return err
+	}
+	tx.header.prevHash = tx.header.prevHash[:len(tx.header.prevHash)-1]
+
+	var sig []byte
+	if sig, err = buf.ReadBytes(' '); err != nil {
+		return err
+	}
+	if sig = sig[:len(sig)-1]; len(sig) > 0 {
+		if tx.Signature, err = NewSignatureFromBytes(sig); err != nil {
+			return err
+		}
+	}
+
+	if tx.data, err = ioutil.ReadAll(buf); err != nil {
+		return err
+	}
+
+	if !bytes.Equal(tx.Hash(), hash) {
+		return fmt.Errorf("hash mistmatch")
+	}
+	return nil
+}
+
+// Verify the transaction signatures
+func (tx *Tx) VerifySignature() (bool, error) {
+	return tx.Signature.Verify(tx.header.pubKey, tx.Hash())
+}
+
+// TxSlice contains a list of transactions
+type TxSlice []*Tx
+
+func (txs TxSlice) Exists(tx *Tx) bool {
+	h := tx.Hash()
+	for _, t := range txs {
+		if bytes.Equal(h, t.Hash()) {
 			return true
 		}
 	}
+
 	return false
 }
 
-func (slice TransactionSlice) AddTransaction(t Transaction) TransactionSlice {
-	// Insert by sorted timestamp
-	for i, tr := range slice {
-		if tr.Header.Timestamp >= t.Header.Timestamp {
-			return append(append(slice[:i], t), slice[i:]...)
-		}
+// MerkleRoot hash of the transaction slice
+func (txs TxSlice) MerkleRoot() ([]byte, error) {
+	if len(txs) == 0 {
+		return ZeroHash(), nil
 	}
 
-	return append(slice, t)
-}
-
-func (slice *TransactionSlice) MarshalBinary() ([]byte, error) {
-	buf := new(bytes.Buffer)
-
-	for _, t := range *slice {
-		bs, err := t.MarshalBinary()
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(bs)
+	// encode transactions.  May need to use DataHash instead of tx.data
+	data := make([][]byte, len(txs))
+	for i, tx := range txs {
+		//data[i] = concat(tx.Hash(), []byte{' '}, tx.data)
+		data[i] = tx.MarshalBinary()
 	}
 
-	return buf.Bytes(), nil
-}
-
-func (slice *TransactionSlice) UnmarshalBinary(d []byte) error {
-	remaining := d
-	for len(remaining) > TRANSACTION_HEADER_SIZE+NETWORK_KEY_SIZE {
-		t := new(Transaction)
-		rem, err := t.UnmarshalBinary(remaining)
-
-		if err != nil {
-			return err
-		}
-		(*slice) = append((*slice), *t)
-		remaining = rem
+	// actual merkel root calculation
+	tree := merkle.NewTree()
+	if err := tree.Generate(data, fastsha256.New()); err != nil {
+		return ZeroHash(), err
 	}
-	return nil
+
+	return tree.Root().Hash, nil
 }

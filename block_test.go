@@ -1,140 +1,49 @@
 package blockchain
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"reflect"
+	"bytes"
 	"testing"
+	"time"
 )
 
-func TestMerkellHash(t *testing.T) {
+var (
+	testBlkHdr1 = BlockHeader{
+		PreviousHash: []byte("Previousblockhash"),
+		MerkelRoot:   []byte("merklerootofalltransactions"),
+		Timestamp:    time.Now().UnixNano(),
+		Nonce:        0,
+	}
+)
 
-	tr1 := NewTransaction(nil, nil, []byte(randomString(randomInt(0, 1024*1024))))
-	tr2 := NewTransaction(nil, nil, []byte(randomString(randomInt(0, 1024*1024))))
-	tr3 := NewTransaction(nil, nil, []byte(randomString(randomInt(0, 1024*1024))))
-	tr4 := NewTransaction(nil, nil, []byte(randomString(randomInt(0, 1024*1024))))
+func Test_BlockHeader(t *testing.T) {
+	bh := testBlkHdr1
+	ed := bh.Encode()
 
-	b := new(Block)
-	b.TransactionSlice = &TransactionSlice{*tr1, *tr2, *tr3, *tr4}
+	bh1 := BlockHeader{}
+	if err := bh1.Decode(ed); err != nil {
+		t.Fatal(err)
+	}
 
-	mt := b.GenerateMerkelRoot()
-	manual := SHA256(append(SHA256(append(tr1.Hash(), tr2.Hash()...)), SHA256(append(tr3.Hash(), tr4.Hash()...))...))
+	if !bytes.Equal(bh.PreviousHash, bh1.PreviousHash) {
+		t.Fatalf("prev hash mismatch '%x'!='%x'", bh.PreviousHash, bh1.PreviousHash)
+	}
 
-	if !reflect.DeepEqual(mt, manual) {
-		t.Error("Merkel tree generation fails")
+	if !bytes.Equal(bh.MerkelRoot, bh1.MerkelRoot) {
+		t.Fatal("merkle root hash mismatch")
 	}
 }
 
-//TODO: Write block validation and marshalling tests [Issue: https://github.com/izqui/blockchain/issues/2]
-func TestBlockMarshalling(t *testing.T) {
+func Test_Block(t *testing.T) {
+	txs := genSlices()
+	blk := NewBlock(ZeroHash(), txs)
+	h1 := blk.Header()
+	m1 := h1.MerkelRoot
 
-	kp := GenerateNewKeypair()
-	tr := NewTransaction(kp.Public, nil, []byte(randomString(randomInt(0, 1024*1024))))
-
-	tr.Header.Nonce = tr.GenerateNonce(arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX))
-	tr.Signature = tr.Sign(kp)
-
-	data, err := tr.MarshalBinary()
-
-	if err != nil {
-		t.Error(err)
+	if err := blk.AddTransaction(NewTx(ZeroHash(), []byte("dlkfajd;lkfjd;fkdjioeurpqiruewp"))); err != nil {
+		t.Fatal(err)
 	}
 
-	newT := &Transaction{}
-	_, err = newT.UnmarshalBinary(data)
-	if err != nil {
-		t.Error(err)
+	if bytes.Equal(m1, blk.header.MerkelRoot) {
+		t.Fatal("merkle roots should be different")
 	}
-
-	if !reflect.DeepEqual(*newT, *tr) {
-		t.Error("Marshall, unmarshall failed")
-	}
-}
-
-func TestBlockVerification(t *testing.T) {
-
-	pow := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
-
-	kp := GenerateNewKeypair()
-	tr := NewTransaction(kp.Public, nil, []byte(randomString(randomInt(0, 1024))))
-
-	tr.Header.Nonce = tr.GenerateNonce(pow)
-	tr.Signature = tr.Sign(kp)
-
-	if !tr.VerifyTransaction(pow) {
-
-		t.Error("Validation failing")
-	}
-}
-
-func TestIncorrectBlockPOWVerification(t *testing.T) {
-
-	pow := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
-	powIncorrect := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, 'a')
-
-	kp := GenerateNewKeypair()
-	tr := NewTransaction(kp.Public, nil, []byte(randomString(randomInt(0, 1024))))
-	tr.Header.Nonce = tr.GenerateNonce(powIncorrect)
-	tr.Signature = tr.Sign(kp)
-
-	if tr.VerifyTransaction(pow) {
-
-		t.Error("Passed validation without pow")
-	}
-}
-
-func TestIncorrectBlockSignatureVerification(t *testing.T) {
-
-	pow := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
-	kp1, kp2 := GenerateNewKeypair(), GenerateNewKeypair()
-	tr := NewTransaction(kp2.Public, nil, []byte(randomString(randomInt(0, 1024))))
-	tr.Header.Nonce = tr.GenerateNonce(pow)
-	tr.Signature = tr.Sign(kp1)
-
-	if tr.VerifyTransaction(pow) {
-
-		t.Error("Passed validation with incorrect key")
-	}
-}
-
-// From http://devpy.wordpress.com/2013/10/24/create-random-string-in-golang/
-func randomString(n int) string {
-
-	alphanum := "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	var bytes = make([]byte, n)
-	rand.Read(bytes)
-	for i, b := range bytes {
-		bytes[i] = alphanum[b%byte(len(alphanum))]
-	}
-	return string(bytes)
-}
-
-func randomInt(a, b int) int {
-
-	var bytes = make([]byte, 1)
-	rand.Read(bytes)
-
-	per := float32(bytes[0]) / 256.0
-	dif := maxInt(a, b) - minInt(a, b)
-
-	return minInt(a, b) + int(per*float32(dif))
-}
-
-func SHA256(data []byte) []byte {
-	sh := sha256.Sum256(data)
-	return sh[:]
-}
-
-func maxInt(a, b int) int {
-	if a >= b {
-		return a
-	}
-	return b
-}
-
-func minInt(a, b int) int {
-	if a <= b {
-		return a
-	}
-	return b
 }

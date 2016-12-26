@@ -8,8 +8,7 @@ import (
 
 // Transaction poll interval
 const (
-	DEFAULT_TX_POLL_TIME_SECS int = 30
-	NETWORK_KEY_SIZE          int = 80
+	defaultTxPollSecs int = 30
 )
 
 type Blockchain struct {
@@ -18,33 +17,34 @@ type Blockchain struct {
 	BlockStore
 	// Channel to read incoming transactions made available
 	// to the internal engine for processing, verification etc.
-	tq chan *Transaction
+	tq chan *Tx
+	// Transaction exposore outbound
+	// Transactions verfied from tq to be braodcasted.
+	txOut chan *Tx
 	// Channel on which generated blocks will be available
 	// to the internal engine for processing verifcation etc.
 	bq chan Block
-	// Transaction exposore outbound
-	// Transactions verfied from tq to be braodcasted.
-	txOut chan *Transaction
 	// Block exposure outbound
 	// Verified blocks to be broadcasted
 	blkOut chan Block
 
 	// Public-Private keypair for this chain
-	Keypair *Keypair
+	Keypair *ECDSAKeypair
+
 	// Check for new transactions per the below interval
 	// This is a constant check even it interrupt not received
 	TxPollInterval int
 }
 
 //func NewBlockchain(keypair *Keypair, broadcastChan chan rpc.Message) *Blockchain {
-func NewBlockchain(keypair *Keypair, store BlockStore) *Blockchain {
+func NewBlockchain(keypair *ECDSAKeypair, store BlockStore) *Blockchain {
 	bl := &Blockchain{
-		tq:             make(chan *Transaction),
+		tq:             make(chan *Tx),
 		bq:             make(chan Block),
-		txOut:          make(chan *Transaction),
+		txOut:          make(chan *Tx),
 		blkOut:         make(chan Block),
 		Keypair:        keypair,
-		TxPollInterval: DEFAULT_TX_POLL_TIME_SECS,
+		TxPollInterval: defaultTxPollSecs,
 	}
 	if store == nil {
 		bl.BlockStore = NewInMemBlockStore()
@@ -60,7 +60,7 @@ func NewBlockchain(keypair *Keypair, store BlockStore) *Blockchain {
 
 // QueueTransaction queues transaction to be added to a block.  Transactions are
 // verified and then only are acccepted.
-func (bl *Blockchain) QueueTransaction(tx *Transaction) {
+func (bl *Blockchain) QueueTransaction(tx *Tx) {
 	bl.tq <- tx
 }
 
@@ -78,7 +78,7 @@ func (bl *Blockchain) BlockAvailable() <-chan Block {
 
 // TransactionAvailable returns a channel containing valid and verified transactions
 // that are available for broadcast on the network.
-func (bl *Blockchain) TransactionAvailable() <-chan *Transaction {
+func (bl *Blockchain) TransactionAvailable() <-chan *Tx {
 	return bl.txOut
 }
 
@@ -90,10 +90,10 @@ func (bl *Blockchain) createNewBlock() Block {
 		prevBlockHash = prevBlock.Hash()
 	}
 
-	b := NewBlock(prevBlockHash)
-	b.BlockHeader.Origin = bl.Keypair.Public
+	b := NewBlock(prevBlockHash, nil)
+	b.header.Origin = bl.Keypair.PublicKeyBytes()
 
-	return b
+	return *b
 }
 
 func (bl *Blockchain) Run() {
@@ -103,12 +103,17 @@ func (bl *Blockchain) Run() {
 		select {
 		// Process transaction
 		case tr := <-bl.tq:
-			if bl.CurrentBlock.TransactionSlice.Exists(*tr) {
+			if bl.CurrentBlock.Transactions.Exists(tr) {
 				continue
 			}
-			if !tr.VerifyTransaction(TRANSACTION_POW) {
-				log.Printf("Verfication failed tx=%s", tr.String())
+			// verify signature only
+			ok, err := tr.VerifySignature()
+			if err != nil {
+				log.Println(err)
 				continue
+			}
+			if !ok {
+				log.Printf("Verfication failed tx=%x", tr.Hash())
 			}
 
 			bl.CurrentBlock.AddTransaction(tr)
@@ -121,23 +126,33 @@ func (bl *Blockchain) Run() {
 			if bl.Exists(b) {
 				continue
 			}
-			if !b.VerifyBlock(BLOCK_POW) {
-				log.Printf("Verification failed block=%s", b.String())
+			ok, err := b.VerifySignature()
+			if err != nil {
+				log.Printf("Signature verfication failed: block=%x reason='%s'", b.Hash(), err.Error())
+				continue
+			}
+			if !ok {
+				log.Printf("Signature invalid: block=%x", b.Hash())
 				continue
 			}
 
-			if reflect.DeepEqual(b.PrevBlock, bl.CurrentBlock.Hash()) {
+			if !b.Verify(BLOCK_POW) {
+				log.Printf("Verification failed: block=%x", b.Hash())
+				continue
+			}
+
+			if reflect.DeepEqual(b.header.PreviousHash, bl.CurrentBlock.Hash()) {
 				// I'm missing some blocks in the middle. Request'em.
-				log.Printf("Missing blocks between prev=%x curr=%s", b.PrevBlock, bl.CurrentBlock.String())
+				log.Printf("Missing blocks between prev=%x curr=%x", b.header.PreviousHash, bl.CurrentBlock.Hash())
 
 			} else {
-				transDiff := TransactionSlice{}
-				if !reflect.DeepEqual(b.BlockHeader.MerkelRoot, bl.CurrentBlock.MerkelRoot) {
+				transDiff := TxSlice{}
+				if !reflect.DeepEqual(b.header.MerkelRoot, bl.CurrentBlock.header.MerkelRoot) {
 					log.Println("Transactions are different. Calculating diff")
-					transDiff = DiffTransactionSlices(*bl.CurrentBlock.TransactionSlice, *b.TransactionSlice)
+					transDiff = DiffTransactionSlices(bl.CurrentBlock.Transactions, b.Transactions)
 				}
 
-				log.Printf("Adding block=%s", b.String())
+				log.Printf("Adding block=%x tx=%d", b.Hash(), len(b.Transactions))
 				if e := bl.Add(b); e != nil {
 					log.Println("ERR", e)
 				}
@@ -147,8 +162,7 @@ func (bl *Blockchain) Run() {
 
 				// Reset current block to a new block
 				bl.CurrentBlock = bl.createNewBlock()
-				bl.CurrentBlock.TransactionSlice = &transDiff
-
+				bl.CurrentBlock.Transactions = transDiff
 				interruptBlockGen <- bl.CurrentBlock
 			}
 		}
@@ -163,27 +177,28 @@ func (bl *Blockchain) generateBlocks() chan Block {
 		block := <-interrupt
 
 	loop:
-		log.Printf("[POW] Begin block=%s", block.String())
-		block.BlockHeader.MerkelRoot = block.GenerateMerkelRoot()
-		block.BlockHeader.Nonce = 0
-		block.BlockHeader.Timestamp = uint32(time.Now().Unix())
+		log.Printf("[POW] Begin block=%x", block.Hash())
+		block.header.MerkelRoot, _ = block.Transactions.MerkleRoot()
+		block.header.Nonce = 0
+		block.header.Timestamp = time.Now().UnixNano()
 
 		for {
 
 			sleepTime := time.Nanosecond
-			if block.TransactionSlice.Len() > 0 {
+			if len(block.Transactions) > 0 {
 				//log.Println("[generateBlocks] Transactions", block.TransactionSlice.Len(), block.Nonce)
 				if CheckProofOfWork(BLOCK_POW, block.Hash()) {
-					log.Printf("[POW] Found block=%s", block.String())
-
-					block.Signature = block.Sign(bl.Keypair)
-					bl.bq <- block
-
-					// TODO: change to milliseconds
-					sleepTime = time.Second * time.Duration(bl.TxPollInterval)
-
+					log.Printf("[POW] Found block=%x", block.Hash())
+					if err := block.Sign(bl.Keypair); err != nil {
+						log.Println("Failed to sign block:", err)
+					} else {
+						//log.Printf("Signed block=%x tx=%d", block.Hash(), len(block.Transactions))
+						bl.bq <- block
+						// TODO: change to milliseconds
+						sleepTime = time.Second * time.Duration(bl.TxPollInterval)
+					}
 				} else {
-					block.BlockHeader.Nonce += 1
+					block.header.Nonce++
 				}
 
 			} else {
@@ -205,8 +220,8 @@ func (bl *Blockchain) generateBlocks() chan Block {
 	return interrupt
 }
 
-//Assumes transaction arrays are sorted (which may be too big of an assumption)
-func DiffTransactionSlices(a, b TransactionSlice) (diff TransactionSlice) {
+// DiffTransactionSlices - Assumes transaction arrays are sorted (which may be too big of an assumption)
+func DiffTransactionSlices(a, b TxSlice) (diff TxSlice) {
 	lastj := 0
 	for _, t := range a {
 		found := false

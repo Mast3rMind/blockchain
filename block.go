@@ -1,173 +1,158 @@
 package blockchain
 
 import (
+	"bufio"
 	"bytes"
-	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"reflect"
+	"time"
+
+	"github.com/btcsuite/fastsha256"
 )
 
-const BLOCK_HEADER_SIZE = NETWORK_KEY_SIZE /* origin key */ +
-	4 /* int32 timestamp */ +
-	32 /* prev block hash */ +
-	32 /* merkel tree hash */ +
-	4 /* int32 nonce */
+const (
+	HIGHEST_TARGET = 0x1d00ffff
+)
 
-const MAX_DATA_SIZE = int(^uint(0) >> 1)
-
-type Block struct {
-	*BlockHeader
-	Signature []byte
-	*TransactionSlice
-}
-
-func NewBlock(previousBlock []byte) Block {
-
-	header := &BlockHeader{PrevBlock: previousBlock}
-	return Block{header, nil, new(TransactionSlice)}
-}
-
-func (b *Block) AddTransaction(t *Transaction) {
-	newSlice := b.TransactionSlice.AddTransaction(*t)
-	b.TransactionSlice = &newSlice
-}
-
-func (b *Block) Sign(keypair *Keypair) []byte {
-	s, _ := keypair.Sign(b.Hash())
-	return s
-}
-
-func (b *Block) VerifyBlock(prefix []byte) bool {
-	headerHash := b.Hash()
-	merkel := b.GenerateMerkelRoot()
-
-	return reflect.DeepEqual(merkel, b.BlockHeader.MerkelRoot) &&
-		CheckProofOfWork(prefix, headerHash) &&
-		SignatureVerify(b.BlockHeader.Origin, b.Signature, headerHash)
-}
-
-func (b *Block) Hash() []byte {
-	headerHash, _ := b.BlockHeader.MarshalBinary()
-	sh := sha256.Sum256(headerHash)
-	return sh[:]
-}
-
-func (b *Block) String() string {
-	return fmt.Sprintf("%x", b.Hash())
-}
-
-func (b *Block) GenerateNonce(prefix []byte) uint32 {
-	newB := b
-	for {
-		if CheckProofOfWork(prefix, newB.Hash()) {
-			break
-		}
-		newB.BlockHeader.Nonce++
-	}
-
-	return newB.BlockHeader.Nonce
-}
-func (b *Block) GenerateMerkelRoot() []byte {
-
-	var merkell func(hashes [][]byte) []byte
-	merkell = func(hashes [][]byte) []byte {
-
-		l := len(hashes)
-		if l == 0 {
-			return nil
-		}
-		if l == 1 {
-			return hashes[0]
-		} else {
-
-			if l%2 == 1 {
-				return merkell([][]byte{merkell(hashes[:l-1]), hashes[l-1]})
-			}
-
-			bs := make([][]byte, l/2)
-			for i, _ := range bs {
-				j, k := i*2, (i*2)+1
-
-				sh := sha256.Sum256(append(hashes[j], hashes[k]...))
-				bs[i] = sh[:]
-			}
-			return merkell(bs)
-		}
-	}
-
-	ts := funcMap(func(t Transaction) []byte { return t.Hash() }, []Transaction(*b.TransactionSlice)).([][]byte)
-	return merkell(ts)
-
-}
-func (b *Block) MarshalBinary() ([]byte, error) {
-
-	bhb, err := b.BlockHeader.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	sig := fitBytesInto(b.Signature, NETWORK_KEY_SIZE)
-	tsb, err := b.TransactionSlice.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-
-	return append(append(bhb, sig...), tsb...), nil
-}
-
-func (b *Block) UnmarshalBinary(d []byte) error {
-
-	buf := bytes.NewBuffer(d)
-
-	header := new(BlockHeader)
-	err := header.UnmarshalBinary(buf.Next(BLOCK_HEADER_SIZE))
-	if err != nil {
-		return err
-	}
-
-	b.BlockHeader = header
-	b.Signature = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
-
-	ts := new(TransactionSlice)
-	err = ts.UnmarshalBinary(buf.Next(MAX_DATA_SIZE))
-	if err != nil {
-		return err
-	}
-
-	b.TransactionSlice = ts
-
-	return nil
-}
-
+// BlockHeader contains block metadata
 type BlockHeader struct {
-	Origin     []byte
-	PrevBlock  []byte
-	MerkelRoot []byte
-	Timestamp  uint32
-	Nonce      uint32
+	Origin       []byte // public key of node
+	PreviousHash []byte // Previous block hash
+	MerkelRoot   []byte // merkle root of all transactions
+	Timestamp    int64
+	Nonce        uint32
+	Bits         uint32
 }
 
-func (h *BlockHeader) MarshalBinary() ([]byte, error) {
+// Encode the block header.  This does not contain the signature
+func (bh *BlockHeader) Encode() []byte {
+	buf := bytes.NewBuffer(nil)
+	buf.Write(append(bh.Origin, ' '))
+	buf.Write(append(bh.PreviousHash, ' '))
+	buf.Write(append(bh.MerkelRoot, ' '))
 
-	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, bh.Timestamp)
+	binary.Write(buf, binary.BigEndian, bh.Nonce)
+	binary.Write(buf, binary.BigEndian, bh.Bits)
 
-	buf.Write(fitBytesInto(h.Origin, NETWORK_KEY_SIZE))
-	binary.Write(buf, binary.LittleEndian, h.Timestamp)
-	buf.Write(fitBytesInto(h.PrevBlock, 32))
-	buf.Write(fitBytesInto(h.MerkelRoot, 32))
-	binary.Write(buf, binary.LittleEndian, h.Nonce)
-
-	return buf.Bytes(), nil
+	return buf.Bytes()
 }
 
-func (h *BlockHeader) UnmarshalBinary(d []byte) error {
+// Decode the bytes into the BlockHeader
+func (bh *BlockHeader) Decode(b []byte) error {
+	var (
+		rd  = bufio.NewReader(bytes.NewBuffer(b))
+		err error
+	)
 
-	buf := bytes.NewBuffer(d)
-	h.Origin = stripByte(buf.Next(NETWORK_KEY_SIZE), 0)
-	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &h.Timestamp)
-	h.PrevBlock = buf.Next(32)
-	h.MerkelRoot = buf.Next(32)
-	binary.Read(bytes.NewBuffer(buf.Next(4)), binary.LittleEndian, &h.Nonce)
+	if bh.Origin, err = rd.ReadBytes(' '); err != nil {
+		return err
+	}
+	bh.Origin = bh.Origin[:len(bh.Origin)-1]
 
-	return nil
+	if bh.PreviousHash, err = rd.ReadBytes(' '); err != nil {
+		return err
+	}
+	bh.PreviousHash = bh.PreviousHash[:len(bh.PreviousHash)-1]
+
+	if bh.MerkelRoot, err = rd.ReadBytes(' '); err != nil {
+		return err
+	}
+	bh.MerkelRoot = bh.MerkelRoot[:len(bh.MerkelRoot)-1]
+
+	if err = binary.Read(rd, binary.BigEndian, bh.Timestamp); err == nil {
+		if err = binary.Read(rd, binary.BigEndian, bh.Nonce); err == nil {
+			err = binary.Read(rd, binary.BigEndian, bh.Bits)
+		}
+	}
+	return err
+}
+
+// Hash of the encoded data
+func (bh *BlockHeader) Hash() []byte {
+	s := fastsha256.Sum256(bh.Encode())
+	return s[:]
+}
+
+// Block consists of 1 or more transactions
+type Block struct {
+	//mu     sync.Mutex
+	Signature    *Signature
+	header       *BlockHeader
+	Transactions TxSlice
+}
+
+// NewBlock instantiates a block with the previous hash and an initial set of
+// optional transactions
+func NewBlock(prevHash []byte, txs TxSlice) *Block {
+	b := &Block{
+		header: &BlockHeader{
+			PreviousHash: prevHash,
+			Timestamp:    time.Now().UnixNano(),
+			Nonce:        0,
+			Bits:         HIGHEST_TARGET,
+		},
+		Transactions: TxSlice{},
+	}
+	if txs != nil {
+		b.Transactions = txs
+	}
+
+	b.header.MerkelRoot, _ = b.Transactions.MerkleRoot()
+
+	return b
+}
+
+// Header of the block reod-only
+func (blk *Block) Header() BlockHeader {
+	return *blk.header
+}
+
+// Hash of the encoded header
+func (blk *Block) Hash() []byte {
+	return blk.header.Hash()
+}
+
+// AddTransaction to the block
+func (blk *Block) AddTransaction(tx *Tx) error {
+	if blk.Signature != nil {
+		return fmt.Errorf("block already signed")
+	}
+	//blk.Transactions = append(blk.Transactions, tx)
+	txs := append(blk.Transactions, tx)
+	mroot, err := txs.MerkleRoot()
+	if err == nil {
+		//blk.mu.Lock()
+		blk.Transactions = txs
+		blk.header.MerkelRoot = mroot
+		//blk.mu.Unlock()
+	}
+
+	return err
+}
+
+func (blk *Block) Verify(prefix []byte) bool {
+	headerHash := blk.Hash()
+	merkel, _ := blk.Transactions.MerkleRoot()
+	return reflect.DeepEqual(merkel, blk.header.MerkelRoot) &&
+		CheckProofOfWork(prefix, headerHash)
+	//SignatureVerify(b.BlockHeader.Origin, b.Signature, headerHash)
+}
+
+func (blk *Block) VerifySignature() (bool, error) {
+	if blk.Signature == nil {
+		return false, fmt.Errorf("block not signed: %x", blk.Hash())
+	}
+	return blk.Signature.Verify(blk.header.Origin, blk.Hash())
+}
+
+func (blk *Block) Sign(signer Signator) error {
+	sig, pubkey, err := signer.Sign(blk.Hash())
+	if err == nil {
+		blk.Signature = sig
+		blk.header.Origin = pubkey
+	}
+
+	return err
 }

@@ -1,78 +1,103 @@
 package blockchain
 
 import (
-	"reflect"
+	"bytes"
 	"testing"
 )
 
-func Test_Transaction_Marshalling(t *testing.T) {
+func genSlices() TxSlice {
+	return TxSlice{
+		NewTx(nil, []byte("werhgedfbrih6yvowtmeupcwipr")),
+		NewTx(nil, []byte("weoq2cmpirotmrpj3imycwphlfkdsnjfgl;k")),
+		NewTx(nil, []byte("etp7one56,buivmcorhoi3mj,j;")),
+	}
+}
 
-	kp := GenerateNewKeypair()
-	tr := NewTransaction(kp.Public, nil, []byte(randomString(randomInt(0, 1024*1024))))
+func Test_Tx_Sign_Verify(t *testing.T) {
+	tx := NewTx(ZeroHash(), nil)
 
-	tr.Header.Nonce = tr.GenerateNonce(arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX))
-	tr.Signature = tr.Sign(kp)
-
-	data, err := tr.MarshalBinary()
-
+	if err := tx.SetData([]byte("foobarbaz")); err != nil {
+		t.Fatal(err)
+	}
+	kp, err := GenerateECDSAKeypair()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	newT := &Transaction{}
-	rem, err := newT.UnmarshalBinary(data)
+	if err = tx.Sign(kp); err != nil {
+		t.Fatal(err)
+	}
 
+	if tx.Signature == nil {
+		t.Fatal("failed to sign")
+	}
+
+	hdr := tx.Header()
+	pkbytes := hdr.pubKey
+	if pkbytes == nil || len(pkbytes) < 1 {
+		t.Fatal("public key not set")
+	}
+
+	ok, err := tx.VerifySignature()
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("failed to verify")
 	}
 
-	if !reflect.DeepEqual(*newT, *tr) || len(rem) < 0 {
-		t.Error("Marshall, unmarshall failed")
+	if err = tx.SetData(tx.Data()); err == nil {
+		t.Fatal("should fail signature error")
 	}
+
 }
 
-func Test_Transaction_VerifyTransaction(t *testing.T) {
+func Test_Tx_Marshal_Unmarshal(t *testing.T) {
+	txs := genSlices()
+	tx := txs[0]
 
-	pow := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
+	kpair, _ := GenerateECDSAKeypair()
+	tx.Sign(kpair)
 
-	kp := GenerateNewKeypair()
-	tr := NewTransaction(kp.Public, nil, []byte(randomString(randomInt(0, 1024))))
+	b := tx.MarshalBinary()
 
-	tr.Header.Nonce = tr.GenerateNonce(pow)
-	tr.Signature = tr.Sign(kp)
-
-	if !tr.VerifyTransaction(pow) {
-
-		t.Error("Validation failing")
+	tx1 := &Tx{}
+	if err := tx1.UnmarshalBinary(b); err != nil {
+		t.Fatal(err)
 	}
+
+	if !bytes.Equal(tx.Hash(), tx1.Hash()) {
+		t.Fatal("hash mismatch")
+	}
+
+	if !bytes.Equal(tx.header.prevHash, tx1.header.prevHash) {
+		t.Fatal("prev hash mismatch")
+	}
+	if !bytes.Equal(tx.Signature.Bytes(), tx1.Signature.Bytes()) {
+		t.Fatal("signature mismatch")
+	}
+
 }
 
-func TestIncorrectTransactionPOWVerification(t *testing.T) {
-
-	pow := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
-	powIncorrect := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, 'a')
-
-	kp := GenerateNewKeypair()
-	tr := NewTransaction(kp.Public, nil, []byte(randomString(randomInt(0, 1024))))
-	tr.Header.Nonce = tr.GenerateNonce(powIncorrect)
-	tr.Signature = tr.Sign(kp)
-
-	if tr.VerifyTransaction(pow) {
-
-		t.Error("Passed validation without pow")
+func Test_TxSlice(t *testing.T) {
+	txs := genSlices()
+	b, err := txs.MerkleRoot()
+	if err != nil {
+		t.Fatal(err)
 	}
-}
 
-func TestIncorrectTransactionSignatureVerification(t *testing.T) {
-
-	pow := arrayOfBytes(TEST_TRANSACTION_POW_COMPLEXITY, TEST_POW_PREFIX)
-	kp1, kp2 := GenerateNewKeypair(), GenerateNewKeypair()
-	tr := NewTransaction(kp2.Public, nil, []byte(randomString(randomInt(0, 1024))))
-	tr.Header.Nonce = tr.GenerateNonce(pow)
-	tr.Signature = tr.Sign(kp1)
-
-	if tr.VerifyTransaction(pow) {
-
-		t.Error("Passed validation with incorrect key")
+	if bytes.Equal(ZeroHash(), b) {
+		t.Fatal("should be non zero hash")
 	}
+
+	txs = TxSlice{}
+	b, err = txs.MerkleRoot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(ZeroHash(), b) {
+		t.Fatal("should be zero hash")
+	}
+
+	t.Logf("%x", b)
 }

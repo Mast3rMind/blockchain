@@ -1,8 +1,9 @@
 package blockchain
 
 import (
+	"bytes"
+	"fmt"
 	"log"
-	"reflect"
 )
 
 type BlockStore interface {
@@ -25,7 +26,7 @@ func (ibs *InMemBlockStore) Exists(b Block) bool {
 	l := len(ibs.bs)
 	for i := l - 1; i >= 0; i-- {
 		bb := ibs.bs[i]
-		if reflect.DeepEqual(b.Signature, bb.Signature) {
+		if bytes.Equal(b.Hash(), bb.Hash()) {
 			return true
 		}
 	}
@@ -34,7 +35,8 @@ func (ibs *InMemBlockStore) Exists(b Block) bool {
 
 func (ibs *InMemBlockStore) Get(hsh string) *Block {
 	for _, b := range ibs.bs {
-		if b.String() == hsh {
+		s := fmt.Sprintf("%x", b.Hash())
+		if s == hsh {
 			return &b
 		}
 	}
