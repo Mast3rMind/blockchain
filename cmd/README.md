@@ -1,8 +1,16 @@
+# blockchaind
 
 This is a sample cli tool to submit transactions to the chain.  Each line via
 stdin is submitted as a transaction.  There is also an http admin interface that
 can be enabled by providing a bind address. See the [usage](#usage) for full options.
 
+
+### Building
+```
+make all
+```
+
+This will generate a `blockchaind` binary in the current working directory.
 
 ### Running
 Below shows how to run a single node and multiple nodes.
@@ -12,7 +20,7 @@ Below shows how to run a single node and multiple nodes.
 Start the first node with default values:
 
 ```
-go run cmd/*.go
+blockchaind
 ```
 
 #### Additional Node
@@ -20,7 +28,7 @@ Spin up additional nodes by changing the bind port to avoid conflicts and provid
 the address of the host above as the join address i.e. `-j`.
 
 ```
-go run cmd/*.go -b 127.0.0.1:45455 -j 127.0.0.1:45454
+blockchaind -b 127.0.0.1:45455 -j 127.0.0.1:45454
 ```
 
 ### Transactions
@@ -32,5 +40,11 @@ finite state machine.
 ### Usage
 
 ```
-go run cmd/*.go --help
+blockchaind --help
+```
+
+### Development
+
+```
+go run cmd/*.go
 ```

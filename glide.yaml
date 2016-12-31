@@ -1,0 +1,9 @@
+package: github.com/ipkg/blockchain
+import:
+- package: github.com/anacrolix/utp
+- package: github.com/btcsuite/fastsha256
+- package: github.com/euforia/go-chord
+- package: github.com/ipkg/go-mux
+- package: github.com/tv42/base58
+- package: github.com/xsleonard/go-merkle
+- package: github.com/zeebo/bencode

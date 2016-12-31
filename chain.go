@@ -21,11 +21,15 @@ var (
 type Transport interface {
 	// write only channel for network blocks and txs to be queued to the local chain
 	Initialize(chan<- *Tx, chan<- Block, BlockStore) error
+	// Broadcast Transaction to the network.  This call would also decide the braoadcast
+	// spread
 	BroadcastTransaction(*Tx) error
+	// Broadcast block to the network.  This call would also decide the braoadcast
+	// spread
 	BroadcastBlock(*Block) error
-	// RequestBlocks will requests the blocks with the given hashes and write them
-	// to the block channel as provided in Initialize.  This will be called from as
-	// a go routine.
+	// RequestBlocks will request blocks with the given hashes from the network
+	// and write them to the block channel as provided in Initialize.  This will
+	// be called from as a go routine.
 	RequestBlocks(hashes ...[]byte)
 	// Last block in the chain as seen by hosts local state
 	LastBlock(host string) (*Block, error)
@@ -65,6 +69,8 @@ type StateMachine interface {
 	Apply(Block) error
 }
 
+// Blockchain verifies transactions and blocks along with handling transaction
+// collection and block generation
 type Blockchain struct {
 	// lock for the current
 	mu sync.Mutex
@@ -305,6 +311,8 @@ loop:
 	}
 }
 
+// Start starts the block generation process and waits for incoming transactions
+// and blocks to be verified
 func (bl *Blockchain) Start() {
 	go bl.startBlockGeneration()
 
