@@ -1,7 +1,7 @@
 package blockchain
 
 import (
-	"bytes"
+	"reflect"
 
 	"github.com/btcsuite/fastsha256"
 	merkle "github.com/xsleonard/go-merkle"
@@ -14,7 +14,7 @@ type TxSlice []*Tx
 func (txs TxSlice) Exists(tx *Tx) bool {
 	h := tx.Hash()
 	for _, t := range txs {
-		if bytes.Equal(h, t.Hash()) {
+		if reflect.DeepEqual(h, t.Hash()) {
 			return true
 		}
 	}
@@ -60,8 +60,7 @@ func (txs TxSlice) Diff(b TxSlice) (diff TxSlice) {
 	for _, t := range txs {
 		found := false
 		for j := lastj; j < len(b); j++ {
-			//if reflect.DeepEqual(b[j].Signature, t.Signature) {
-			if bytes.Equal(b[j].Signature, t.Signature) {
+			if reflect.DeepEqual(b[j].Signature, t.Signature) {
 				found = true
 				lastj = j
 				break

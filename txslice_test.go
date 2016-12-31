@@ -1,7 +1,7 @@
 package blockchain
 
 import (
-	"bytes"
+	"reflect"
 	"testing"
 )
 
@@ -12,7 +12,7 @@ func Test_TxSlice(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if bytes.Equal(ZeroHash(), b) {
+	if reflect.DeepEqual(ZeroHash(), b) {
 		t.Fatal("should be non zero hash")
 	}
 
@@ -21,7 +21,7 @@ func Test_TxSlice(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(ZeroHash(), b) {
+	if !reflect.DeepEqual(ZeroHash(), b) {
 		t.Fatal("should be zero hash")
 	}
 }

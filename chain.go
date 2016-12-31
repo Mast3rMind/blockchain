@@ -1,9 +1,9 @@
 package blockchain
 
 import (
-	"bytes"
 	"fmt"
 	"log"
+	"reflect"
 	"sync"
 	"time"
 )
@@ -152,7 +152,7 @@ func (bl *Blockchain) QueueTransactions(tx ...*Tx) {
 // createNewBlock for generation
 func (bl *Blockchain) createNewBlock() Block {
 
-	// TODO: may need to get last block from network.
+	// get new block from store with the previous hash
 	b := bl.store.NewBlock()
 	b.Origin = bl.signator.PublicKey().Bytes()
 
@@ -222,7 +222,7 @@ func (bl *Blockchain) processBlock(b Block) error {
 
 	// We are missing blocks between b.PrevHash and bl.curBlk.Hash().  Request them
 	// from the network.
-	if bytes.Equal(bl.curBlk.Hash(), b.PrevHash) {
+	if reflect.DeepEqual(bl.curBlk.Hash(), b.PrevHash) {
 		if bl.store.Get(b.PrevHash) != nil {
 			log.Printf("Chain may have diverged at: %x", b.PrevHash)
 			return nil
@@ -235,7 +235,7 @@ func (bl *Blockchain) processBlock(b Block) error {
 	}
 
 	txDiff := TxSlice{}
-	if !bytes.Equal(b.MerkelRoot, bl.curBlk.MerkelRoot) {
+	if !reflect.DeepEqual(b.MerkelRoot, bl.curBlk.MerkelRoot) {
 		txDiff = bl.curBlk.Transactions.Diff(b.Transactions)
 		log.Printf("Transaction diff: %d", len(txDiff))
 	}

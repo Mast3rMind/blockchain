@@ -1,7 +1,7 @@
 package blockchain
 
 import (
-	"bytes"
+	"reflect"
 	"sync"
 )
 
@@ -23,7 +23,7 @@ func (ibs *InMemBlockStore) Exists(b Block) bool {
 	l := len(ibs.bs)
 	for i := l - 1; i >= 0; i-- {
 		bb := ibs.bs[i]
-		if bytes.Equal(b.Hash(), bb.Hash()) && bytes.Equal(b.PrevHash, bb.PrevHash) {
+		if reflect.DeepEqual(b.Hash(), bb.Hash()) && reflect.DeepEqual(b.PrevHash, bb.PrevHash) {
 			return true
 		}
 	}
@@ -33,7 +33,7 @@ func (ibs *InMemBlockStore) Exists(b Block) bool {
 // Get block from the store given its hash
 func (ibs *InMemBlockStore) Get(hsh []byte) *Block {
 	for _, b := range ibs.bs {
-		if bytes.Equal(b.Hash(), hsh) {
+		if reflect.DeepEqual(b.Hash(), hsh) {
 			return &b
 		}
 	}

@@ -1,8 +1,8 @@
 package blockchain
 
 import (
-	"bytes"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -144,7 +144,7 @@ func Test_ChordTransport(t *testing.T) {
 		t.Fatal("bc2 should have blocks")
 	}
 
-	if !bytes.Equal(b1.Hash(), b2.Hash()) {
+	if !reflect.DeepEqual(b1.Hash(), b2.Hash()) {
 		t.Fatal("chain last block hash mismatch")
 	}
 
@@ -160,7 +160,7 @@ func Test_ChordTransport(t *testing.T) {
 	if err != nil {
 		t.Fatal("bc2 failed to get last block")
 	}
-	if !bytes.Equal(blb1.Hash(), blb2.Hash()) {
+	if !reflect.DeepEqual(blb1.Hash(), blb2.Hash()) {
 		t.Fatal("last block mismatch between nodes")
 	}
 

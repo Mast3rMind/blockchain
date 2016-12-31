@@ -1,7 +1,7 @@
 package blockchain
 
 import (
-	"bytes"
+	"reflect"
 	"testing"
 )
 
@@ -22,12 +22,12 @@ func Test_BlockStore(t *testing.T) {
 	blk := NewGenesisBlock()
 	bs.Add(*blk)
 
-	if !bytes.Equal(bs.FirstBlock().Hash(), blk.Hash()) {
+	if !reflect.DeepEqual(bs.FirstBlock().Hash(), blk.Hash()) {
 		t.Fatal("wrong first block")
 	}
 
 	lb := bs.LastBlock()
-	if !bytes.Equal(lb.Hash(), blk.Hash()) {
+	if !reflect.DeepEqual(lb.Hash(), blk.Hash()) {
 		t.Fatal("wrong last block")
 	}
 
@@ -42,7 +42,7 @@ func Test_BlockStore(t *testing.T) {
 	tx1 := blk.Transactions[len(blk.Transactions)-1]
 	tx2 := bs.LastTx()
 
-	if !bytes.Equal(tx1.Hash(), tx2.Hash()) {
+	if !reflect.DeepEqual(tx1.Hash(), tx2.Hash()) {
 		t.Error("tx hash mismatch")
 	}
 }

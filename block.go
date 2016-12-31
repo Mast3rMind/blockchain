@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"bytes"
 	"reflect"
 	"time"
 )
@@ -54,21 +53,19 @@ func (blk *Block) AddTransaction(tx *Tx) error {
 	if blk.Signature != nil {
 		return errAlreadySigned
 	}
-	// TODO: check if tx.prevHash == blk last transaction.Hash()
+
 	ltx := blk.Transactions.Last()
 	if ltx != nil {
-		if !bytes.Equal(ltx.Hash(), tx.PrevHash) {
+		if !reflect.DeepEqual(ltx.Hash(), tx.PrevHash) {
 			return errPrevHash
 		}
 	}
-	//blk.Transactions = append(blk.Transactions, tx)
+
 	txs := append(blk.Transactions, tx)
 	mroot, err := txs.MerkleRoot()
 	if err == nil {
-		//blk.mu.Lock()
 		blk.Transactions = txs
 		blk.MerkelRoot = mroot
-		//blk.mu.Unlock()
 	}
 
 	return err
@@ -77,9 +74,7 @@ func (blk *Block) AddTransaction(tx *Tx) error {
 func (blk *Block) Verify(prefix []byte) bool {
 	headerHash := blk.Hash()
 	merkel, _ := blk.Transactions.MerkleRoot()
-	return reflect.DeepEqual(merkel, blk.MerkelRoot) &&
-		CheckProofOfWork(prefix, headerHash)
-	//SignatureVerify(b.BlockHeader.Origin, b.Signature, headerHash)
+	return reflect.DeepEqual(merkel, blk.MerkelRoot) && CheckProofOfWork(prefix, headerHash)
 }
 
 func (blk *Block) VerifySignature() error {
@@ -93,21 +88,11 @@ func (blk *Block) VerifySignature() error {
 // Sign the block.
 func (blk *Block) Sign(signer Signator) error {
 	blk.Origin = signer.PublicKey().Bytes()
+
 	sig, err := signer.Sign(blk.Hash())
 	if err == nil {
 		blk.Signature = sig.Bytes()
-		//blk.Origin = pubkey
 	}
 
 	return err
 }
-
-/*func (blk *Block) Decode(r io.Reader) error {
-	var hdr BlockHeader
-	if err := hdr.Decode(r); err != nil {
-		return err
-	}
-	blk.BlockHeader = &hdr
-	// TODO: rest of the block
-	return nil
-}*/
