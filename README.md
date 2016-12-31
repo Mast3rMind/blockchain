@@ -1,7 +1,7 @@
 # blockchain
 
-blockchain provides a library implementation of the blockchain algorithm.  It is
-meant to be a base for a general purpose distributed transaction log.
+blockchain provides an implementation of blockchain algorithm.  It is
+meant to be a base for general purpose distributed transactions.
 
 The implementation has the following 3 interfaces for customizations:
 
