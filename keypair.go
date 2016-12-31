@@ -10,6 +10,11 @@ import (
 
 const ecdsaKeySize = 28
 
+// PublicKey represents a public key to obtain the byte encoding
+type PublicKey interface {
+	Bytes() []byte
+}
+
 // ECDSAKeypair is used to satisfy the keypair interface
 type ECDSAKeypair struct {
 	PrivateKey *ecdsa.PrivateKey
@@ -25,20 +30,29 @@ func GenerateECDSAKeypair() (*ECDSAKeypair, error) {
 }
 
 // Sign data returning the 2 signatures
-func (ekp *ECDSAKeypair) Sign(data []byte) (*Signature, []byte, error) {
+func (ekp *ECDSAKeypair) Sign(data []byte) (*Signature, error) {
 	sr, ss, err := ecdsa.Sign(rand.Reader, ekp.PrivateKey, data)
 	if err == nil {
-		pub := ekp.PrivateKey.PublicKey
-		pk := base58.EncodeBig([]byte{}, joinBigInt(ecdsaKeySize, pub.X, pub.Y))
-		return &Signature{r: sr, s: ss}, pk, nil
-		//encodeECDSAPublicKey(ekp.PrivateKey.PublicKey), nil
+		//pub := ekp.PrivateKey.PublicKey
+		//pk := base58.EncodeBig([]byte{}, joinBigInt(ecdsaKeySize, pub.X, pub.Y))
+		//return &Signature{r: sr, s: ss}, pk, nil
+		return &Signature{r: sr, s: ss}, nil
 	}
-	return nil, nil, err
+	return nil, err
 }
 
-func (ekp *ECDSAKeypair) PublicKeyBytes() []byte {
-	x := ekp.PrivateKey.PublicKey.X
-	y := ekp.PrivateKey.PublicKey.Y
+// PublicKey of the given private key
+func (ekp *ECDSAKeypair) PublicKey() PublicKey {
+	return ECDSAPublicKey(ekp.PrivateKey.PublicKey)
+}
+
+// ECDSAPublicKey satifsfies the PublicKey interface
+type ECDSAPublicKey ecdsa.PublicKey
+
+// Bytes encoded of the public key
+func (pk ECDSAPublicKey) Bytes() []byte {
+	x := pk.X
+	y := pk.Y
 	b := joinBigInt(ecdsaKeySize, x, y)
 	return base58.EncodeBig([]byte{}, b)
 }

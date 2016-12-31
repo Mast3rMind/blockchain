@@ -22,6 +22,15 @@ func concat(pieces ...[]byte) []byte {
 	return buf
 }
 
+func IsZeroBytes(b []byte) bool {
+	for _, e := range b {
+		if e != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func joinBigInt(expectedLen int, bigs ...*big.Int) *big.Int {
 	bs := []byte{}
 	for i, b := range bigs {
