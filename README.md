@@ -9,6 +9,12 @@ The implementation has the following 3 interfaces for customizations:
 - BlockStore
 - Transport
 
+## BlockStore
+A an in-memory block store is provided called `InMemBlockStore`
+
+## Transport
+An implementation of a chord based transport is provided that uses uTP called `ChordTransport`
+
 ## Signatures
 There are 2 types of signatures:
 
