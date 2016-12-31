@@ -94,7 +94,7 @@ func (ct *ChordTransport) LastBlock(host string) (*Block, error) {
 	return ct.getBlockByType(reqTypeLastBlock, host)
 }
 
-// GenesisBlock request from the given host.
+// FirstBlock request from the given host.
 func (ct *ChordTransport) FirstBlock(host string) (*Block, error) {
 	return ct.getBlockByType(reqTypeFirstBlock, host)
 }
@@ -171,7 +171,7 @@ func (ct *ChordTransport) broadcast(typ byte, hsh []byte, v interface{}) error {
 		hosts := VnodeSlice(vns).UniqueHosts()
 		for _, host := range hosts {
 			// skip self
-			if host == ct.cc.Hostname {
+			if host == ct.ring.Hostname() {
 				continue
 			}
 
@@ -228,7 +228,7 @@ func (ct *ChordTransport) RequestBlocks(hashes ...[]byte) {
 
 		uhosts := VnodeSlice(vns).UniqueHosts()
 		for _, host := range uhosts {
-			if host == ct.cc.Hostname {
+			if host == ct.ring.Hostname() {
 				continue
 			}
 
