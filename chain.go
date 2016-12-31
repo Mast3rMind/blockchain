@@ -143,14 +143,6 @@ func (bl *Blockchain) QueueTransactions(tx ...*Tx) {
 	}
 }
 
-// QueueBlocks queues a block to be added to the chain.  This performs a full
-// validation before actually adding it to the chain.
-func (bl *Blockchain) QueueBlocks(bs ...Block) {
-	for _, b := range bs {
-		bl.bq <- b
-	}
-}
-
 // createNewBlock for generation
 func (bl *Blockchain) createNewBlock() Block {
 
@@ -194,11 +186,12 @@ func (bl *Blockchain) processTx(tx *Tx) error {
 	return nil
 }
 
+// this runs in a go routine and may need to be optimized as many without limit
+// can be spawned
 func (bl *Blockchain) submitBlocksRequest(hashes ...[]byte) {
 	arr := [][]byte{}
 	for _, h := range hashes {
 		if h != nil && len(h) > 0 {
-			//log.Printf("Requesting block: %x", h)
 			arr = append(arr, h)
 		}
 	}
@@ -215,20 +208,23 @@ func (bl *Blockchain) processBlock(b Block) error {
 	if err != nil {
 		return err
 	}
-	// 3.
+
+	// 3. Verfiy proof of work
 	if !b.Verify(BLOCK_POW) {
 		return fmt.Errorf("proof-of-work verification failed")
 	}
 
+	// We are missing blocks between b.PrevHash and bl.curBlk.Hash().  Request them
+	// from the network.
 	if bytes.Equal(bl.curBlk.Hash(), b.PrevHash) {
-		//log.Printf("MISSING BLOCKS between prev=%x curr=%x", b.PrevHash, bl.curBlk.Hash())
 		if bl.store.Get(b.PrevHash) != nil {
 			log.Printf("Chain may have diverged at: %x", b.PrevHash)
 			return nil
 		}
+
 		log.Printf("Requesting block: %x", b.PrevHash)
-		// TODO: request blocks from the network
 		go bl.submitBlocksRequest(b.PrevHash)
+
 		return nil
 	}
 

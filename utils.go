@@ -22,15 +22,6 @@ func concat(pieces ...[]byte) []byte {
 	return buf
 }
 
-func IsZeroBytes(b []byte) bool {
-	for _, e := range b {
-		if e != 0 {
-			return false
-		}
-	}
-	return true
-}
-
 func joinBigInt(expectedLen int, bigs ...*big.Int) *big.Int {
 	bs := []byte{}
 	for i, b := range bigs {
@@ -71,12 +62,3 @@ func arrayOfBytes(i int, b byte) (p []byte) {
 	}
 	return
 }
-
-/*func powTargetFromBits(bits uint32) *big.Int {
-	bits3 := bits - (bits>>24)<<24
-	bits1 := 8 * (bits>>24 - 3)
-	j := big.NewInt(int64(2))
-	j.Exp(j, big.NewInt(int64(bits1)), big.NewInt(0))
-	j.Mul(big.NewInt(int64(bits3)), j)
-	return j
-}*/

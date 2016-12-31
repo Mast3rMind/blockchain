@@ -81,6 +81,7 @@ func Test_ChordTransport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	go bc1.Start()
 
 	// NODE 2
@@ -104,11 +105,23 @@ func Test_ChordTransport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if st2.FirstBlock() == nil {
+		t.Fatal("first block should not be nil")
+	}
+
 	go bc2.Start()
 
 	<-time.After(200 * time.Millisecond)
 
 	// CHECKS
+
+	fb, err := bct2.FirstBlock(cfg1.Hostname)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fb == nil {
+		t.Fatal("first block should not be nil")
+	}
 
 	txs := genSlices()
 	txs[0].Sign(testKp)
@@ -152,9 +165,17 @@ func Test_ChordTransport(t *testing.T) {
 	}
 
 	// This should be the order of shutdown.
-	//r1.Leave()// leave ring
-	//bc1.Shutdown() // Shutdown blockchain
-	//t1.Shutdown()   // Shutdown ring transport
-	//bct1.Shutdown() // Shutdown chain transport
+	r1.Leave() // leave ring
+	<-time.After(1 * time.Second)
+	//bc1.Shutdown()  // Shutdown blockchain
+	t1.Shutdown()   // Shutdown ring transport
+	bct1.Shutdown() // Shutdown chain transport
+
+	<-time.After(1 * time.Second)
+	r2.Leave() // leave ring
+	<-time.After(1 * time.Second)
+	//bc2.Shutdown()  // Shutdown blockchain
+	t2.Shutdown()   // Shutdown ring transport
+	bct2.Shutdown() // Shutdown chain transport
 
 }

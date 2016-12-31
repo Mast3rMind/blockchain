@@ -31,7 +31,7 @@ func (svr *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s := svr.st
 
 		b := s.LastBlock()
-		if b == nil || b.BlockHeader == nil || blockchain.IsZeroBytes(b.PrevHash) {
+		if b == nil || b.BlockHeader == nil || isZeroBytes(b.PrevHash) {
 			w.WriteHeader(404)
 			w.Write([]byte("nil\n"))
 			return
@@ -41,7 +41,7 @@ func (svr *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(fmt.Sprintf("%x\n", b.Hash())))
 
 			b = s.Get(b.PrevHash)
-			if b == nil || b.BlockHeader == nil || blockchain.IsZeroBytes(b.PrevHash) {
+			if b == nil || b.BlockHeader == nil || isZeroBytes(b.PrevHash) {
 				break
 			}
 
@@ -56,4 +56,13 @@ func (svr *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	b, _ := json.Marshal(resp)
 	w.Write(b)
+}
+
+func isZeroBytes(b []byte) bool {
+	for _, e := range b {
+		if e != 0 {
+			return false
+		}
+	}
+	return true
 }

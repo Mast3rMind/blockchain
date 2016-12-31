@@ -24,6 +24,4 @@ func Test_TxSlice(t *testing.T) {
 	if !bytes.Equal(ZeroHash(), b) {
 		t.Fatal("should be zero hash")
 	}
-
-	t.Logf("%x", b)
 }

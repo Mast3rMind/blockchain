@@ -5,24 +5,33 @@ meant to be a base for general purpose distributed transactions.
 
 The implementation has the following 3 interfaces for customizations:
 
-- Keypair
 - BlockStore
 - Transport
+- Signator
 
 ## BlockStore
-A an in-memory block store is provided called `InMemBlockStore`
+A an in-memory block store is provided called **InMemBlockStore**
 
 ## Transport
-An implementation of a chord based transport is provided that uses uTP called `ChordTransport`
+An implementation of a chord based transport is provided that uses uTP called **ChordTransport**
 
-## Signatures
-There are 2 types of signatures:
-
-- Block
-- Transaction
+## Signator
+The signator interface is responsible for signing and verifying blocks and transactions.  The provided
+implementation uses ECDSA key pairs called **ECDSAKeypair**.
 
 ### Block Signature
-Public key of the node where the block originated from.
+This should be the public key of the node where the block originated from.
 
 ### Transaction Signature
-Public key of the entity issuing the transaction.
+This should be the public key of the entity issuing the transaction.
+
+#### To Do
+
+- [ ] Key management
+- [ ] Increase test coverage
+
+
+#### Ackknowledgments
+
+The original blockchain code is based on [izqui/blockchain](https://github.com/izqui/blockchain) and
+[gitchain/gitchain](https://github.com/gitchain/gitchain).

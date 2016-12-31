@@ -86,5 +86,8 @@ func (ibs *InMemBlockStore) BlockCount() int64 {
 
 // FirstBlock returns the first block in this store. ie. chain
 func (ibs *InMemBlockStore) FirstBlock() *Block {
-	return &ibs.bs[0]
+	if len(ibs.bs) > 0 {
+		return &ibs.bs[0]
+	}
+	return nil
 }
