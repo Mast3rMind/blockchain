@@ -170,9 +170,8 @@ func (ct *ChordTransport) getConn(addr string) (*outConn, error) {
 }
 
 func (ct *ChordTransport) returnConn(conn *outConn) {
+	conn.used = time.Now()
 	addr := conn.sock.RemoteAddr().String()
-
-	//log.Printf("returning: local=%s remote=%s", conn.LocalAddr().String(), addr)
 
 	ct.olock.Lock()
 	defer ct.olock.Unlock()
@@ -305,7 +304,9 @@ func (ct *ChordTransport) handleConn(conn net.Conn) {
 		var header bcHeader
 		err := dec.Decode(&header)
 		if err != nil {
-
+			if atomic.LoadInt32(&ct.shutdown) == 0 && err.Error() != "EOF" {
+				log.Printf("[ERR] Failed to decode header! Got: %s", err)
+			}
 			// Eventually just remove this ????
 			//if err != io.EOF && err != errPacketReadTimeout {
 			//	log.Println("WRN", err)
@@ -398,6 +399,8 @@ func (ct *ChordTransport) reapOnce() {
 
 // Shutdown listener and all inbound and outbound connections.
 func (ct *ChordTransport) Shutdown() {
+	atomic.StoreInt32(&ct.shutdown, 1)
+
 	ct.sock.Close()
 
 	// Close all the inbound connections
