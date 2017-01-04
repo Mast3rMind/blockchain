@@ -26,6 +26,7 @@ var (
 	TEST_BLOCK_POW       = arrayOfBytes(TEST_BLOCK_POW_COMPLEXITY, POW_PREFIX)
 )
 
+// CheckProofOfWork returns true if the given hash has the prefix
 func CheckProofOfWork(prefix []byte, hash []byte) bool {
 	if len(prefix) > 0 {
 		return reflect.DeepEqual(prefix, hash[:len(prefix)])
