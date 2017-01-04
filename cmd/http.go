@@ -39,6 +39,9 @@ func (svr *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		for {
 			w.Write([]byte(fmt.Sprintf("%x\n", b.Hash())))
+			for _, tx := range b.Transactions {
+				w.Write([]byte(fmt.Sprintf("  %x\n", tx.Hash())))
+			}
 
 			b = s.Get(b.PrevHash)
 			if b == nil || b.BlockHeader == nil || isZeroBytes(b.PrevHash) {

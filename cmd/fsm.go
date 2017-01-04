@@ -14,5 +14,7 @@ func (sm *stateMachine) Apply(b blockchain.Block) error {
 	log.Printf("[fsm.Apply] %x blk=%x nonce=%d tx=%d\n", b.PrevHash[len(b.PrevHash)-4:],
 		b.Hash(), b.Nonce, len(b.Transactions))
 
+	log.Printf("[fsm.Apply] lastTx=%x", b.Transactions.Last().Hash())
+
 	return nil
 }

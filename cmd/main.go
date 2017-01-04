@@ -177,6 +177,10 @@ func main() {
 	fmt.Println("Type something and hit enter")
 	for {
 		str := <-readStdin()
+		if len(str) == 0 {
+			fmt.Println("Type something and hit enter")
+			continue
+		}
 
 		if str == "chain.length" {
 			fmt.Println(store.BlockCount())

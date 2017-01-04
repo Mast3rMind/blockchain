@@ -75,7 +75,7 @@ type Blockchain struct {
 	// lock for the current
 	mu sync.Mutex
 	// block being worked on currently
-	curBlk Block
+	curBlk *Block
 
 	// Channel to read incoming transactions made available
 	// to the internal engine for processing, verification etc.
@@ -150,13 +150,13 @@ func (bl *Blockchain) QueueTransactions(tx ...*Tx) {
 }
 
 // createNewBlock for generation
-func (bl *Blockchain) createNewBlock() Block {
+func (bl *Blockchain) createNewBlock() *Block {
 
 	// get new block from store with the previous hash
 	b := bl.store.NewBlock()
 	b.Origin = bl.signator.PublicKey().Bytes()
 
-	return *b
+	return b
 }
 
 // verify transaction, and broadcast on success
@@ -187,7 +187,7 @@ func (bl *Blockchain) processTx(tx *Tx) error {
 	bl.mu.Unlock()
 
 	// send curr block to block generation channel
-	bl.genBlk <- bl.curBlk
+	bl.genBlk <- *bl.curBlk
 
 	return nil
 }
@@ -261,7 +261,7 @@ func (bl *Blockchain) processBlock(b Block) error {
 	bl.curBlk.Transactions = txDiff
 	bl.mu.Unlock()
 
-	bl.genBlk <- bl.curBlk
+	bl.genBlk <- *bl.curBlk
 
 	return nil
 }
