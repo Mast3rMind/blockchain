@@ -170,7 +170,13 @@ func (bl *Blockchain) processTx(tx *Tx) error {
 		return err
 	}
 
-	// TODO verify other parts of the tx
+	// Verify tx order from the last tx
+	if len(bl.curBlk.Transactions) == 0 {
+		lh := bl.store.LastTx().Hash()
+		if !reflect.DeepEqual(tx.PrevHash, lh) {
+			return errPrevHash
+		}
+	}
 
 	// make transaction available to broadcast or do whatever else.  this should
 	// be done first before we add to our current block
@@ -289,7 +295,7 @@ loop:
 		}
 
 		if err := block.Sign(bl.signator); err != nil {
-			log.Println("Failed to sign block:", err)
+			log.Println("ERR Failed to sign block:", err)
 			goto enditer
 		}
 
@@ -322,17 +328,10 @@ func (bl *Blockchain) Start() {
 		case tr := <-bl.tq:
 			// Process transaction
 			bl.processTx(tr)
-			//if err := bl.processTx(tr); err != nil {
-			//	log.Printf("ERR tx=%x reason='%s'", tr.Hash(), err.Error())
-			//}
 
 		case b := <-bl.bq:
 			// Process block
 			bl.processBlock(b)
-			//if err := bl.processBlock(b); err != nil {
-			//	log.Printf("ERR block=%x reason='%s'", b.Hash(), err.Error())
-			//}
-
 		}
 	}
 }
