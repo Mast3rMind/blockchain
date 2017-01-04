@@ -307,10 +307,6 @@ func (ct *ChordTransport) handleConn(conn net.Conn) {
 			if atomic.LoadInt32(&ct.shutdown) == 0 && err.Error() != "EOF" {
 				log.Printf("[ERR] Failed to decode header! Got: %s", err)
 			}
-			// Eventually just remove this ????
-			//if err != io.EOF && err != errPacketReadTimeout {
-			//	log.Println("WRN", err)
-			//}
 
 			return
 		}
