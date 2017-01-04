@@ -11,6 +11,12 @@ import (
 	"github.com/ipkg/go-mux"
 )
 
+var (
+	testDialTimeout = time.Duration(1 * time.Second)
+	testRpcTimeout  = time.Duration(50 * time.Millisecond)
+	testMaxConnIdle = time.Duration(300 * time.Second)
+)
+
 type DummyTransport struct {
 }
 
@@ -42,10 +48,6 @@ func prepRingUTP(port int) (*mux.Mux, *chord.Config, *chord.UTPTransport, error)
 	conf.StabilizeMin = time.Duration(15 * time.Millisecond)
 	conf.StabilizeMax = time.Duration(45 * time.Millisecond)
 
-	dialTimeout := time.Duration(1 * time.Second)
-	rpcTimeout := time.Duration(50 * time.Millisecond)
-	maxConnIdle := time.Duration(300 * time.Second)
-
 	ln, err := utp.NewSocket("udp", listen)
 	if err != nil {
 		return nil, nil, nil, err
@@ -55,7 +57,7 @@ func prepRingUTP(port int) (*mux.Mux, *chord.Config, *chord.UTPTransport, error)
 	go mx.Serve()
 	sock1 := mx.Listen(72)
 
-	trans, err := chord.InitUTPTransport(sock1, dialTimeout, rpcTimeout, maxConnIdle)
+	trans, err := chord.InitUTPTransport(sock1, testDialTimeout, testRpcTimeout, testMaxConnIdle)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -76,7 +78,7 @@ func Test_ChordTransport(t *testing.T) {
 
 	<-time.After(200 * time.Millisecond)
 	st1 := NewInMemBlockStore()
-	bct1 := NewChordTransport(mx1.Listen(73), cfg1, r1)
+	bct1 := NewChordTransport(mx1.Listen(73), cfg1, r1, testDialTimeout, testMaxConnIdle)
 	bc1, err := NewBlockchain(testKp, st1, bct1, &testFsm{})
 	if err != nil {
 		t.Fatal(err)
@@ -100,7 +102,7 @@ func Test_ChordTransport(t *testing.T) {
 	// Set the genesis block from other store
 	st2 := NewInMemBlockStore()
 	st2.Add(*st1.LastBlock())
-	bct2 := NewChordTransport(mx2.Listen(73), cfg2, r2)
+	bct2 := NewChordTransport(mx2.Listen(73), cfg2, r2, testDialTimeout, testMaxConnIdle)
 	bc2, err := NewBlockchain(testKp, st2, bct2, &testFsm{}, cfg1.Hostname)
 	if err != nil {
 		t.Fatal(err)

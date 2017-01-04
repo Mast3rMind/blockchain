@@ -18,9 +18,9 @@ import (
 
 // CFG is the global config.
 var CFG = &config{
-	DialTimeout: 6 * time.Second,
+	DialTimeout: 3 * time.Second,
 	RpcTimeout:  3 * time.Second,
-	MaxConnIdle: 300 * time.Second,
+	MaxConnIdle: 115 * time.Second,
 }
 
 type config struct {
@@ -152,7 +152,7 @@ func main() {
 	store := blockchain.NewInMemBlockStore()
 
 	// blockchain transport
-	btrans := blockchain.NewChordTransport(mx.Listen(73), ccfg, ring)
+	btrans := blockchain.NewChordTransport(mx.Listen(73), ccfg, ring, CFG.DialTimeout, CFG.MaxConnIdle)
 
 	chain, err := blockchain.NewBlockchain(kp, store, btrans, &stateMachine{}, CFG.Peers()...)
 	if err != nil {

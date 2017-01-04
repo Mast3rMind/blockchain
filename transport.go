@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	chord "github.com/euforia/go-chord"
@@ -21,8 +22,17 @@ const (
 	reqTypeTxBroadcast
 )
 
+//var (
+//	errPacketReadTimeout = fmt.Errorf("no packet read timeout")
+//)
+
 type bcHeader struct {
 	T byte
+}
+
+type outConn struct {
+	sock net.Conn
+	used time.Time
 }
 
 // ChordTransport for the blockchain
@@ -31,17 +41,21 @@ type ChordTransport struct {
 	sock *mux.Layer
 
 	dialTimeout time.Duration
+	// max idle time for outbound conns
+	maxIdle time.Duration
 
 	cc   *chord.Config
 	ring *chord.Ring
 
 	olock sync.Mutex
 	// outbound connections
-	outbound map[string][]net.Conn
+	outbound map[string][]*outConn
 
 	ilock sync.RWMutex
 	// inbound connections
 	inbound map[net.Conn]bool
+
+	shutdown int32
 
 	// channel to send blocks from network
 	bch chan<- Block
@@ -53,13 +67,14 @@ type ChordTransport struct {
 
 // NewChordTransport initializes a new chord based transport for the blockchain.  The chord config
 // is used to determine the braodcast spread and identifying self using the advertise address.
-func NewChordTransport(sock *mux.Layer, cfg *chord.Config, ring *chord.Ring) *ChordTransport {
+func NewChordTransport(sock *mux.Layer, cfg *chord.Config, ring *chord.Ring, dialTimeout, connMaxIdle time.Duration) *ChordTransport {
 	ct := &ChordTransport{
 		sock:        sock,
-		dialTimeout: 5 * time.Second,
+		dialTimeout: dialTimeout,
+		maxIdle:     connMaxIdle,
 		cc:          cfg,
 		ring:        ring,
-		outbound:    map[string][]net.Conn{},
+		outbound:    map[string][]*outConn{},
 		inbound:     map[net.Conn]bool{},
 	}
 
@@ -75,6 +90,8 @@ func (ct *ChordTransport) Initialize(tx chan<- *Tx, blk chan<- Block, store Bloc
 	ct.store = store
 
 	go ct.listen()
+
+	go ct.reapOld()
 
 	return nil
 }
@@ -108,9 +125,9 @@ func (ct *ChordTransport) getBlockByType(typ byte, host string) (*Block, error) 
 
 	var blk Block
 
-	enc := bencode.NewEncoder(conn)
+	enc := bencode.NewEncoder(conn.sock)
 	if err = enc.Encode(&bcHeader{T: typ}); err == nil {
-		dec := bencode.NewDecoder(conn)
+		dec := bencode.NewDecoder(conn.sock)
 		err = dec.Decode(&blk)
 	}
 
@@ -120,7 +137,7 @@ func (ct *ChordTransport) getBlockByType(typ byte, host string) (*Block, error) 
 		}
 		// don't return conn there is an error.  since we are using udp underneath, it
 		// shouldn't be too expensive to get a new connection.
-		conn.Close()
+		conn.sock.Close()
 		return &blk, err
 	}
 
@@ -128,8 +145,8 @@ func (ct *ChordTransport) getBlockByType(typ byte, host string) (*Block, error) 
 	return &blk, nil
 }
 
-func (ct *ChordTransport) getConn(addr string) (net.Conn, error) {
-	var out net.Conn
+func (ct *ChordTransport) getConn(addr string) (*outConn, error) {
+	var out *outConn
 
 	ct.olock.Lock()
 
@@ -141,21 +158,28 @@ func (ct *ChordTransport) getConn(addr string) (net.Conn, error) {
 	ct.olock.Unlock()
 
 	if out != nil {
+		//log.Printf("from pool: local=%s remote=%s", out.LocalAddr().String(), out.RemoteAddr().String())
 		return out, nil
 	}
-
-	return ct.sock.Dial(addr, ct.dialTimeout)
+	//log.Printf("new: remote=%s", addr)
+	sock, err := ct.sock.Dial(addr, ct.dialTimeout)
+	if err != nil {
+		return nil, err
+	}
+	return &outConn{used: time.Now(), sock: sock}, nil
 }
 
-func (ct *ChordTransport) returnConn(conn net.Conn) {
-	addr := conn.RemoteAddr().String()
+func (ct *ChordTransport) returnConn(conn *outConn) {
+	addr := conn.sock.RemoteAddr().String()
+
+	//log.Printf("returning: local=%s remote=%s", conn.LocalAddr().String(), addr)
 
 	ct.olock.Lock()
 	defer ct.olock.Unlock()
 
 	p, ok := ct.outbound[addr]
 	if !ok {
-		ct.outbound[addr] = []net.Conn{conn}
+		ct.outbound[addr] = []*outConn{conn}
 		return
 	}
 	ct.outbound[addr] = append(p, conn)
@@ -171,7 +195,7 @@ func (ct *ChordTransport) broadcast(typ byte, hsh []byte, v interface{}) error {
 		hosts := VnodeSlice(vns).UniqueHosts()
 		for _, host := range hosts {
 			// skip self
-			if host == ct.ring.Hostname() {
+			if host == ct.cc.Hostname {
 				continue
 			}
 
@@ -190,12 +214,12 @@ func (ct *ChordTransport) doRequest(host string, hdr *bcHeader, req, resp interf
 		return err
 	}
 
-	enc := bencode.NewEncoder(conn)
+	enc := bencode.NewEncoder(conn.sock)
 	if err = enc.Encode(hdr); err == nil {
 		if err = enc.Encode(req); err == nil {
 			// optional response param
 			if resp != nil {
-				dec := bencode.NewDecoder(conn)
+				dec := bencode.NewDecoder(conn.sock)
 				err = dec.Decode(resp)
 			}
 		}
@@ -207,7 +231,7 @@ func (ct *ChordTransport) doRequest(host string, hdr *bcHeader, req, resp interf
 		}
 		// Don't return conn there is an error.  since we are using udp underneath, it
 		// shouldn't be too expensive to get a new connection.
-		conn.Close()
+		conn.sock.Close()
 		return err
 	}
 
@@ -228,7 +252,7 @@ func (ct *ChordTransport) RequestBlocks(hashes ...[]byte) {
 
 		uhosts := VnodeSlice(vns).UniqueHosts()
 		for _, host := range uhosts {
-			if host == ct.ring.Hostname() {
+			if host == ct.cc.Hostname {
 				continue
 			}
 
@@ -281,7 +305,12 @@ func (ct *ChordTransport) handleConn(conn net.Conn) {
 		var header bcHeader
 		err := dec.Decode(&header)
 		if err != nil {
-			log.Println("WRN", err)
+
+			// Eventually just remove this ????
+			//if err != io.EOF && err != errPacketReadTimeout {
+			//	log.Println("WRN", err)
+			//}
+
 			return
 		}
 
@@ -337,6 +366,36 @@ func (ct *ChordTransport) handleConn(conn net.Conn) {
 
 }
 
+// Closes old outbound connections
+func (ct *ChordTransport) reapOld() {
+	for {
+		if atomic.LoadInt32(&ct.shutdown) == 1 {
+			return
+		}
+		time.Sleep(30 * time.Second)
+		ct.reapOnce()
+	}
+}
+
+func (ct *ChordTransport) reapOnce() {
+	ct.olock.Lock()
+	defer ct.olock.Unlock()
+
+	for host, conns := range ct.outbound {
+		max := len(conns)
+		for i := 0; i < max; i++ {
+			if time.Since(conns[i].used) > ct.maxIdle {
+				conns[i].sock.Close()
+				conns[i], conns[max-1] = conns[max-1], nil
+				max--
+				i--
+			}
+		}
+		// Trim any idle conns
+		ct.outbound[host] = conns[:max]
+	}
+}
+
 // Shutdown listener and all inbound and outbound connections.
 func (ct *ChordTransport) Shutdown() {
 	ct.sock.Close()
@@ -352,7 +411,7 @@ func (ct *ChordTransport) Shutdown() {
 	ct.olock.Lock()
 	for _, conns := range ct.outbound {
 		for _, out := range conns {
-			out.Close()
+			out.sock.Close()
 		}
 	}
 	ct.outbound = nil
