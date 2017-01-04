@@ -39,8 +39,11 @@ func (svr *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		for {
 			w.Write([]byte(fmt.Sprintf("%x\n", b.Hash())))
-			for _, tx := range b.Transactions {
-				w.Write([]byte(fmt.Sprintf("  %x\n", tx.Hash())))
+			// Walk transactions in reverse order within a block
+			l := len(b.Transactions) - 1
+			for i := l; i >= 0; i-- {
+				tx := b.Transactions[i]
+				w.Write([]byte(fmt.Sprintf(" tx: prev=%x hash=%x\n", tx.PrevHash[:8], tx.Hash()[:8])))
 			}
 
 			b = s.Get(b.PrevHash)
