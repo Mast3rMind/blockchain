@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 	"testing"
@@ -10,6 +11,31 @@ import (
 var (
 	testKp, _ = GenerateECDSAKeypair()
 )
+
+type DummyTransport struct {
+}
+
+func (dt *DummyTransport) Initialize(tx chan<- *Tx, blk chan<- Block, store ReadOnlyBlockStore) error {
+	return nil
+}
+
+func (dt *DummyTransport) BroadcastTransaction(*Tx) error {
+	return fmt.Errorf("tbi")
+}
+
+func (dt *DummyTransport) BroadcastBlock(*Block) error {
+	return fmt.Errorf("tbi")
+}
+
+func (dt *DummyTransport) RequestBlocks(hashes ...[]byte) {
+}
+
+func (dt *DummyTransport) FirstBlock(host string) (*Block, error) {
+	return nil, fmt.Errorf("tbi")
+}
+func (dt *DummyTransport) LastBlock(host string) (*Block, error) {
+	return nil, fmt.Errorf("tbi")
+}
 
 type testFsm struct{}
 

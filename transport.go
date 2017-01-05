@@ -105,12 +105,14 @@ func (ct *ChordTransport) BroadcastBlock(blk *Block) error {
 	return ct.broadcast(reqTypeBlockBroadcast, blk.Hash(), blk)
 }
 
-// BroadcastTransaction to the network
+// BroadcastTransaction to the network.  Do a lookup on the hash and broadcast
+// to nodes in a go-routine
 func (ct *ChordTransport) BroadcastTransaction(tx *Tx) error {
 	return ct.broadcast(reqTypeTxBroadcast, tx.Hash(), tx)
 }
 
-// LastBlock of the chain per the given host
+// LastBlock of the chain per the given host.  Do a lookup on the hash and
+// broadcast to nodes in a go-routine
 func (ct *ChordTransport) LastBlock(host string) (*Block, error) {
 	return ct.getBlockByType(reqTypeLastBlock, host)
 }
@@ -139,8 +141,6 @@ func (ct *ChordTransport) getBlockByType(typ byte, host string) (*Block, error) 
 		if err == io.EOF {
 			err = nil
 		}
-		// don't return conn there is an error.  since we are using udp underneath, it
-		// shouldn't be too expensive to get a new connection.
 		conn.sock.Close()
 		return &blk, err
 	}
@@ -188,6 +188,7 @@ func (ct *ChordTransport) returnConn(conn *outConn) {
 	ct.outbound[addr] = append(p, conn)
 }
 
+// Do a lookup on the hash and broadcast to nodes in a separate go-routine
 func (ct *ChordTransport) broadcast(typ byte, hsh []byte, v interface{}) error {
 	nodes, err := ct.ring.Lookup(ct.cc.NumSuccessors, hsh)
 	if err != nil {

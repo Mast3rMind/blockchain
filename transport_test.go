@@ -17,31 +17,6 @@ var (
 	testMaxConnIdle = time.Duration(115 * time.Second)
 )
 
-type DummyTransport struct {
-}
-
-func (dt *DummyTransport) Initialize(tx chan<- *Tx, blk chan<- Block, store ReadOnlyBlockStore) error {
-	return nil
-}
-
-func (dt *DummyTransport) BroadcastTransaction(*Tx) error {
-	return fmt.Errorf("tbi")
-}
-
-func (dt *DummyTransport) BroadcastBlock(*Block) error {
-	return fmt.Errorf("tbi")
-}
-
-func (dt *DummyTransport) RequestBlocks(hashes ...[]byte) {
-}
-
-func (dt *DummyTransport) FirstBlock(host string) (*Block, error) {
-	return nil, fmt.Errorf("tbi")
-}
-func (dt *DummyTransport) LastBlock(host string) (*Block, error) {
-	return nil, fmt.Errorf("tbi")
-}
-
 func prepRingUTP(port int) (*mux.Mux, *chord.Config, *chord.UTPTransport, error) {
 	listen := fmt.Sprintf("127.0.0.1:%d", port)
 	conf := chord.DefaultConfig(listen)
@@ -132,9 +107,26 @@ func Test_ChordTransport(t *testing.T) {
 	txs[2].PrevHash = txs[1].Hash()
 	txs[2].Sign(testKp)
 
-	bc1.QueueTransactions(txs...)
+	for _, tx := range txs {
+		if e := bct2.BroadcastTransaction(tx); e != nil {
+			t.Error(e)
+		}
+	}
+
+	for _, b := range st1.bs {
+		if e := bct1.BroadcastBlock(&b); e != nil {
+			t.Error(e)
+		}
+	}
 
 	<-time.After(3 * time.Second)
+
+	hashes := make([][]byte, len(st2.bs))
+	for i, b := range st2.bs {
+		hashes[i] = b.Hash()
+	}
+
+	bct2.RequestBlocks(hashes...)
 
 	b1 := bc1.store.LastBlock()
 	if b1 == nil {
