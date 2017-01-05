@@ -14,13 +14,13 @@ import (
 var (
 	testDialTimeout = time.Duration(1 * time.Second)
 	testRpcTimeout  = time.Duration(50 * time.Millisecond)
-	testMaxConnIdle = time.Duration(300 * time.Second)
+	testMaxConnIdle = time.Duration(115 * time.Second)
 )
 
 type DummyTransport struct {
 }
 
-func (dt *DummyTransport) Initialize(tx chan<- *Tx, blk chan<- Block, store BlockStore) error {
+func (dt *DummyTransport) Initialize(tx chan<- *Tx, blk chan<- Block, store ReadOnlyBlockStore) error {
 	return nil
 }
 

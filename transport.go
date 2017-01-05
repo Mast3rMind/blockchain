@@ -22,9 +22,13 @@ const (
 	reqTypeTxBroadcast
 )
 
-//var (
-//	errPacketReadTimeout = fmt.Errorf("no packet read timeout")
-//)
+// ROBlockStore read-only blockstore
+type ReadOnlyBlockStore interface {
+	LastBlock() *Block
+	FirstBlock() *Block
+	// get block by hash
+	Get(hash []byte) *Block
+}
 
 type bcHeader struct {
 	T byte
@@ -62,7 +66,7 @@ type ChordTransport struct {
 	// channel to send tx from network
 	tch chan<- *Tx
 
-	store BlockStore
+	store ReadOnlyBlockStore
 }
 
 // NewChordTransport initializes a new chord based transport for the blockchain.  The chord config
@@ -84,7 +88,7 @@ func NewChordTransport(sock *mux.Layer, cfg *chord.Config, ring *chord.Ring, dia
 // Initialize is called by the blockchain with the tx and block queues.  These are
 // used when blocks and txs are received over the network to submit to the engine
 // for processing.
-func (ct *ChordTransport) Initialize(tx chan<- *Tx, blk chan<- Block, store BlockStore) error {
+func (ct *ChordTransport) Initialize(tx chan<- *Tx, blk chan<- Block, store ReadOnlyBlockStore) error {
 	ct.bch = blk
 	ct.tch = tx
 	ct.store = store

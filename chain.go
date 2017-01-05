@@ -19,10 +19,11 @@ var (
 
 // Transport protocol for the network.  This abstracts out the peers.
 type Transport interface {
-	// write only channel for network blocks and txs to be queued to the local chain
-	Initialize(chan<- *Tx, chan<- Block, BlockStore) error
-	// Broadcast Transaction to the network.  This call would also decide the braoadcast
-	// spread
+	// Takes a write only channel for network blocks and txs to be queued to the
+	// local chain and a read-only blockstore to handle network block requests.
+	Initialize(chan<- *Tx, chan<- Block, ReadOnlyBlockStore) error
+	// Broadcast Transaction to the network.  This call would also decide the
+	// broadcast spread
 	BroadcastTransaction(*Tx) error
 	// Broadcast block to the network.  This call would also decide the braoadcast
 	// spread
@@ -256,7 +257,8 @@ func (bl *Blockchain) processBlock(b Block) error {
 		return err
 	}
 
-	// Make block available to broadcast or do whatever else
+	// TODO: Check if the blocks need to be braodcasted before applying to the fsm
+	// and adding to the blockstore.
 	if e := bl.transport.BroadcastBlock(&b); e != nil {
 		log.Printf("ERR [transport] broadcast block=%x reason='%v'", b.Hash(), e)
 	}
@@ -283,6 +285,7 @@ loop:
 	block.Timestamp = time.Now().UnixNano()
 
 	for {
+
 		sleepTime := time.Nanosecond
 		if len(block.Transactions) < 1 {
 			sleepTime = time.Second * time.Duration(bl.TxPollInterval)

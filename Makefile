@@ -2,7 +2,8 @@
 NAME = blockchaind
 
 clean:
-	[ -x $(NAME) ] && rm $(NAME)
+	rm -f $(NAME)
+	rm -rf vendor
 
 test:
 	go test -cover .

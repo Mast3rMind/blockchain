@@ -1,8 +1,8 @@
 hash: debee08f27a54eea7106b11f08a39d79c3905dc39d041c588f8c817244d94427
-updated: 2016-12-31T13:11:04.480895418-08:00
+updated: 2017-01-04T19:51:59.965162551-08:00
 imports:
 - name: github.com/anacrolix/missinggo
-  version: a096221b59b0f9284a80fe0be9ee36ddafb8f719
+  version: 12075dbd1dc953d255dd3e7184fe6a3ec6d33bf5
   subpackages:
   - inproc
   - pproffd
@@ -13,7 +13,7 @@ imports:
 - name: github.com/btcsuite/fastsha256
   version: 637e656429416087660c84436a2a035d69d54e2e
 - name: github.com/euforia/go-chord
-  version: 9864b9cf1f5f9cc2e6dcffeb9a8511b5c1f78552
+  version: 5685fccb96dcb6233618ae748abda76df3f67d2e
 - name: github.com/golang/protobuf
   version: df1d3ca07d2d07bba352d5b73c4313b4e2a6203e
   subpackages:
@@ -25,7 +25,7 @@ imports:
 - name: github.com/xsleonard/go-merkle
   version: c71c7cc334c839f31f3760b2385eab8381daf64e
 - name: github.com/zeebo/bencode
-  version: 9e17a193afc98ea546601d05f036b0b033d15b3e
+  version: 03ce512f17ce5deb2c024518d504c6419f04d39d
 - name: golang.org/x/net
   version: cd8c2701a5e10f044db915e65eac68f738399d22
   subpackages:

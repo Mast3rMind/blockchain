@@ -41,7 +41,8 @@ This should be the public key of the entity issuing the transaction.
 
 #### To Do
 
-- [ ] Key management
+- [ ] Add key management
+- [ ] Optimize
 - [ ] Increase test coverage
 
 
