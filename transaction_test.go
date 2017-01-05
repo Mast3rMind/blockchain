@@ -14,6 +14,7 @@ func Test_Tx_Sign_Verify(t *testing.T) {
 	tx := NewTx(ZeroHash(), nil)
 
 	tx.Data = []byte("foobarbaz")
+
 	kp, err := GenerateECDSAKeypair()
 	if err != nil {
 		t.Fatal(err)
@@ -32,7 +33,7 @@ func Test_Tx_Sign_Verify(t *testing.T) {
 		t.Fatal("public key not set")
 	}
 
-	if err = tx.VerifySignature(); err != nil {
+	if err = tx.VerifySignature(kp); err != nil {
 		t.Fatal(err)
 	}
 

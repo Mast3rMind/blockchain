@@ -71,18 +71,16 @@ func (blk *Block) AddTransaction(tx *Tx) error {
 	return err
 }
 
+// Verify proof of work with the given prefix
 func (blk *Block) Verify(prefix []byte) bool {
 	headerHash := blk.Hash()
 	merkel, _ := blk.Transactions.MerkleRoot()
 	return reflect.DeepEqual(merkel, blk.MerkelRoot) && CheckProofOfWork(prefix, headerHash)
 }
 
-func (blk *Block) VerifySignature() error {
-	sig, err := NewSignatureFromBytes(blk.Signature)
-	if err == nil {
-		err = sig.Verify(blk.Origin, blk.Hash())
-	}
-	return err
+// VerifySignature of the block given the Signator to verify
+func (blk *Block) VerifySignature(verifier Signator) error {
+	return verifier.Verify(blk.Origin, blk.Signature, blk.Hash())
 }
 
 // Sign the block.

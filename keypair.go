@@ -46,6 +46,16 @@ func (ekp *ECDSAKeypair) PublicKey() PublicKey {
 	return ECDSAPublicKey(ekp.PrivateKey.PublicKey)
 }
 
+// Verify signature given the public key and data hash
+func (ekp *ECDSAKeypair) Verify(pubkey, signature, hash []byte) error {
+	sig, err := NewSignatureFromBytes(signature)
+	if err == nil {
+		err = sig.Verify(pubkey, hash)
+	}
+
+	return err
+}
+
 // ECDSAPublicKey satifsfies the PublicKey interface
 type ECDSAPublicKey ecdsa.PublicKey
 

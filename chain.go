@@ -166,12 +166,13 @@ func (bl *Blockchain) processTx(tx *Tx) error {
 		return nil
 	}
 	// verify signature only
-	err := tx.VerifySignature()
+	err := tx.VerifySignature(bl.signator)
 	if err != nil {
 		return err
 	}
 
-	// Verify tx order from the last tx
+	// If the current block has no transactions get the last tx from the previous
+	// block to check against.
 	if len(bl.curBlk.Transactions) == 0 {
 		lh := bl.store.LastTx().Hash()
 		if !reflect.DeepEqual(tx.PrevHash, lh) {
@@ -217,7 +218,7 @@ func (bl *Blockchain) processBlock(b Block) error {
 		return nil
 	}
 
-	err := b.VerifySignature()
+	err := b.VerifySignature(bl.signator)
 	if err != nil {
 		return err
 	}

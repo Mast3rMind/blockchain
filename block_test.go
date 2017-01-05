@@ -33,4 +33,22 @@ func Test_Block(t *testing.T) {
 	if reflect.DeepEqual(m1, blk.MerkelRoot) {
 		t.Fatal("merkle roots should be different")
 	}
+
+	kp, _ := GenerateECDSAKeypair()
+
+	if e := blk.Sign(kp); e != nil {
+		t.Fatal(e)
+	}
+
+	if e := blk.VerifySignature(kp); e != nil {
+		t.Fatal(e)
+	}
+
+	if blk.Verify(BLOCK_POW) {
+		t.Fatal("should not pass verification")
+	}
+
+	if e := blk.AddTransaction(NewTx(ZeroHash(), []byte("dlkfajd;lkfjd;fkdjioeurpqiruewp"))); e == nil {
+		t.Error("should fail with already signed")
+	}
 }

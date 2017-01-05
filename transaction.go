@@ -6,6 +6,7 @@ import "github.com/btcsuite/fastsha256"
 type Signator interface {
 	Sign([]byte) (*Signature, error)
 	PublicKey() PublicKey
+	Verify(pubkey, signature, hash []byte) error
 }
 
 // TxType is a transaction type
@@ -64,10 +65,6 @@ func (tx *Tx) Sign(signer Signator) error {
 }
 
 // VerifySignature of the transaction
-func (tx *Tx) VerifySignature() error {
-	sig, err := NewSignatureFromBytes(tx.Signature)
-	if err == nil {
-		return sig.Verify(tx.Source, tx.Hash())
-	}
-	return err
+func (tx *Tx) VerifySignature(verifier Signator) error {
+	return verifier.Verify(tx.Source, tx.Signature, tx.Hash())
 }

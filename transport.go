@@ -196,7 +196,7 @@ func (ct *ChordTransport) broadcast(typ byte, hsh []byte, v interface{}) error {
 	}
 
 	go func(vns []*chord.Vnode) {
-		hosts := VnodeSlice(vns).UniqueHosts()
+		hosts := chord.VnodeSlice(vns).UniqueHosts()
 		for _, host := range hosts {
 			// skip self
 			if host == ct.cc.Hostname {
@@ -254,7 +254,7 @@ func (ct *ChordTransport) RequestBlocks(hashes ...[]byte) {
 			continue
 		}
 
-		uhosts := VnodeSlice(vns).UniqueHosts()
+		uhosts := chord.VnodeSlice(vns).UniqueHosts()
 		for _, host := range uhosts {
 			if host == ct.cc.Hostname {
 				continue
@@ -420,37 +420,4 @@ func (ct *ChordTransport) Shutdown() {
 	}
 	ct.outbound = nil
 	ct.olock.Unlock()
-}
-
-// VnodeSlice allows operations against a set of vnodes
-type VnodeSlice []*chord.Vnode
-
-// UniqueHosts from a list of vnodes
-func (vl VnodeSlice) UniqueHosts() []string {
-	m := map[string]bool{}
-	for _, v := range vl {
-		m[v.Host] = true
-	}
-	out := make([]string, len(m))
-	i := 0
-	for k := range m {
-		out[i] = k
-		i++
-	}
-	return out
-}
-
-// VnodesByHost returns a map of vnodes to hosts.
-func (vl VnodeSlice) VnodesByHost() map[string]VnodeSlice {
-	m := map[string]VnodeSlice{}
-	for _, vn := range vl {
-		v, ok := m[vn.Host]
-		if !ok {
-			m[vn.Host] = VnodeSlice{vn}
-			continue
-		}
-		v = append(v, vn)
-		m[vn.Host] = v
-	}
-	return m
 }
