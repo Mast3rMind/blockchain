@@ -14,7 +14,7 @@ const (
 )
 
 var (
-	errPrevHash = fmt.Errorf("previous hash mismatch")
+	ErrPrevHash = fmt.Errorf("previous hash mismatch")
 )
 
 // Transport protocol for the network.  This abstracts out the peers.
@@ -150,6 +150,20 @@ func (bl *Blockchain) QueueTransactions(tx ...*Tx) {
 	}
 }
 
+func (bl *Blockchain) QueueBlocks(blks ...Block) {
+	for _, t := range blks {
+		bl.bq <- t
+	}
+}
+
+func (bl *Blockchain) LastBlock() *Block {
+	return bl.store.LastBlock()
+}
+
+func (bl *Blockchain) LastTx() *Tx {
+	return bl.store.LastTx()
+}
+
 // createNewBlock for generation
 func (bl *Blockchain) createNewBlock() *Block {
 
@@ -176,7 +190,7 @@ func (bl *Blockchain) processTx(tx *Tx) error {
 	if len(bl.curBlk.Transactions) == 0 {
 		lh := bl.store.LastTx().Hash()
 		if !reflect.DeepEqual(tx.PrevHash, lh) {
-			return errPrevHash
+			return ErrPrevHash
 		}
 	}
 

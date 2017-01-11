@@ -57,7 +57,7 @@ func (blk *Block) AddTransaction(tx *Tx) error {
 	ltx := blk.Transactions.Last()
 	if ltx != nil {
 		if !reflect.DeepEqual(ltx.Hash(), tx.PrevHash) {
-			return errPrevHash
+			return ErrPrevHash
 		}
 	}
 

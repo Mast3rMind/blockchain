@@ -148,11 +148,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// store
-	store := blockchain.NewInMemBlockStore()
-
 	// blockchain transport
 	btrans := blockchain.NewChordTransport(mx.Listen(73), ccfg, ring, CFG.DialTimeout, CFG.MaxConnIdle)
+
+	// store
+	store := blockchain.NewInMemBlockStore()
 
 	chain, err := blockchain.NewBlockchain(kp, store, btrans, &stateMachine{}, CFG.Peers()...)
 	if err != nil {
